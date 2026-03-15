@@ -108,28 +108,31 @@
     </div>
 
     <div class="track-wrap">
+      <!--
+        Track SVG — light background, orange gradient lane.
+        Path is counter-clockwise: starts top-left curve, goes down,
+        along bottom straight, up right curve, back along top.
+      -->
       <svg id="trackSvg" class="track-svg" viewBox="0 0 760 320">
         <defs>
+          <!-- Orange gradient: deep burnt orange → bright amber -->
           <linearGradient id="trackGlow" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%"   stop-color="#2ef2c1"/>
-            <stop offset="100%" stop-color="#56a8ff"/>
+            <stop offset="0%"   stop-color="#c94a10"/>
+            <stop offset="50%"  stop-color="#f07030"/>
+            <stop offset="100%" stop-color="#ffab5e"/>
           </linearGradient>
         </defs>
+
+        <!-- Light background -->
         <rect x="0" y="0" width="760" height="320" class="track-backdrop"/>
+
+        <!-- Subtle glow halo behind the track lane -->
         <path
-          d="M 160 40 L 600 40 A 100 120 0 0 1 600 280 L 160 280 A 100 120 0 0 1 160 40 Z"
-          fill="none" stroke="rgba(46,242,193,0.08)" stroke-width="70"
+          d="M 160 40 A 100 120 0 0 0 160 280 L 600 280 A 100 120 0 0 0 600 40 L 160 40 Z"
+          fill="none" stroke="rgba(232,107,48,0.12)" stroke-width="70"
         />
-        <!--
-          Track path redrawn counter-clockwise so the runner immediately
-          enters the left curve (as in a real 800m start):
-            Start: top of left curve (160,40)
-            → Down left curve (arc CCW to 160,280)
-            → Right along bottom straight to (600,280)
-            → Up right curve (arc CCW to 600,40)
-            → Left along top straight back to (160,40)
-          sweep-flag=0 on both arcs = counter-clockwise
-        -->
+
+        <!-- Main track path (counter-clockwise) -->
         <path
           id="trackPath"
           d="M 160 40
@@ -139,17 +142,23 @@
              L 160 40 Z"
           class="track-lane"
         />
+
+        <!-- Start/finish line -->
         <line x1="160" y1="16" x2="160" y2="64"
-              stroke="rgba(255,255,255,0.55)" stroke-width="2.5" stroke-dasharray="5 3"/>
-        <text x="168" y="30" font-size="9" fill="rgba(255,255,255,0.45)"
+              stroke="rgba(100,60,20,0.5)" stroke-width="2.5" stroke-dasharray="5 3"/>
+        <text x="168" y="30" font-size="9" fill="rgba(100,60,20,0.55)"
               font-family="Bahnschrift,sans-serif" letter-spacing="1">START / FINISH</text>
+
+        <!-- Inner label -->
         <text x="380" y="164" text-anchor="middle" font-size="10"
-              fill="rgba(148,174,202,0.28)" font-family="Bahnschrift,sans-serif" letter-spacing="3">800m · 2 LAPS</text>
+              fill="rgba(160,100,60,0.3)" font-family="Bahnschrift,sans-serif" letter-spacing="3">800m · 2 LAPS</text>
+
         <g id="splitMarkers"></g>
+
         <circle id="runnerDot"   r="10" cx="160" cy="40" class="runner-dot"/>
         <circle id="runnerPulse" r="12" cx="160" cy="40" class="runner-pulse">
           <animate attributeName="r"       from="12" to="26" dur="1.8s" repeatCount="indefinite"/>
-          <animate attributeName="opacity" from="0.5" to="0" dur="1.8s" repeatCount="indefinite"/>
+          <animate attributeName="opacity" from="0.45" to="0" dur="1.8s" repeatCount="indefinite"/>
         </circle>
       </svg>
     </div>
@@ -218,23 +227,25 @@
     <div id="graph-card-wrap" style="position:relative">
       <svg id="fatigueGraph" viewBox="0 0 520 200" class="fatigue-graph">
         <defs>
+          <!-- Teal fatigue fill — original colours preserved -->
           <linearGradient id="fatigueFill" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%"   stop-color="#2ef2c1" stop-opacity="0.5"/>
-            <stop offset="100%" stop-color="#2ef2c1" stop-opacity="0.04"/>
+            <stop offset="0%"   stop-color="#2ef2c1" stop-opacity="0.45"/>
+            <stop offset="100%" stop-color="#2ef2c1" stop-opacity="0.03"/>
           </linearGradient>
+          <!-- Blue pace fill -->
           <linearGradient id="paceFill" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%"   stop-color="#56a8ff" stop-opacity="0.4"/>
-            <stop offset="100%" stop-color="#56a8ff" stop-opacity="0.04"/>
+            <stop offset="0%"   stop-color="#56a8ff" stop-opacity="0.38"/>
+            <stop offset="100%" stop-color="#56a8ff" stop-opacity="0.03"/>
           </linearGradient>
         </defs>
         <g id="graphGrid"></g>
         <line id="lapDivider" x1="0" y1="0" x2="0" y2="0"
-              stroke="rgba(255,255,255,0.22)" stroke-width="1.5" stroke-dasharray="4 3"/>
+              stroke="rgba(0,0,0,0.10)" stroke-width="1.5" stroke-dasharray="4 3"/>
         <path id="fatigueArea" style="fill:url(#fatigueFill)"></path>
         <path id="fatigueLine" class="graph-line"></path>
         <path id="paceArea"    style="fill:url(#paceFill)"></path>
         <path id="paceLine"    class="graph-line"
-              style="stroke:var(--accent-2);stroke-width:2.5;stroke-dasharray:5 3"></path>
+              style="stroke:#56a8ff;stroke-width:2.5;stroke-dasharray:5 3"></path>
         <g id="graphPoints"></g>
         <g id="graphLabels"></g>
       </svg>
@@ -248,39 +259,39 @@
 
 </main>
 
-  <!-- ── DISCLAIMER FOOTER ── -->
-  <footer class="disclaimer">
-    <div class="disclaimer-inner">
-      <div class="disclaimer-grid">
+<!-- ── DISCLAIMER FOOTER ── -->
+<footer class="disclaimer">
+  <div class="disclaimer-inner">
+    <div class="disclaimer-grid">
 
-        <div class="disc-block">
-          <h4>Predictive Models &amp; Sources</h4>
-          <p>This simulator implements established sports science models adapted for educational and informational use. The <strong>Riegel Power-Law</strong> formula is based on Pete Riegel's 1977 empirical research published in <em>American Scientist</em>. The <strong>Critical Speed</strong> model derives from foundational work by Hill (1925) and subsequent developments by Monod &amp; Scherrer (1965) and Morton (1996). The <strong>MSS/MAS Blend</strong> formula references methodology described in Loporto &amp; Mannion (2021), <em>Aerobic and Anaerobic Speed Predicts 800-m Running Performance in Young Recreational Runners</em> (PMC8176219). The <strong>Speed Reserve Ratio (SRR)</strong> framework is based on Sandford et al. (2019), <em>Anaerobic Speed Reserve: A Key Component of Elite Male 800-m Running</em> (PubMed 30300023). Ensemble weighting methodology is adapted from general principles of model averaging in predictive analytics and is not derived from any single proprietary source.</p>
-        </div>
-
-        <div class="disc-block">
-          <h4>Not Medical or Training Advice</h4>
-          <p>The predictions, fatigue estimates, and pacing recommendations generated by this tool are <strong>purely informational and educational</strong>. They do not constitute medical advice, clinical exercise guidance, or personalised training prescription. Individual athletic performance is affected by factors this tool does not account for — including injury history, current fitness level, sleep, nutrition, altitude acclimatisation, psychological state, and race-day conditions. Always consult a qualified coach, sports scientist, or licensed physician before making decisions about your training or competition strategy. Do not use this tool to push through pain, illness, or injury.</p>
-        </div>
-
-        <div class="disc-block">
-          <h4>Accuracy &amp; Limitations</h4>
-          <p>Predicted times are statistical estimates for <strong>outdoor</strong> track and field with inherent uncertainty. Typical model error for well-trained athletes is approximately <strong>±2–5 seconds</strong> for the 800m; errors may be larger for athletes whose profiles fall outside the collegiate-to-elite range on which these models were validated. Sex-adjustment coefficients are population-level averages and may not reflect individual variation. No warranty, express or implied, is made regarding the accuracy of any prediction. Results should not be used as the sole basis for race entry standards, scholarship decisions, medical clearance, or any consequential determination.</p>
-        </div>
-
-        <div class="disc-block">
-          <h4>Intellectual Property &amp; Commercial Use</h4>
-          <p>The mathematical formulas implemented here are based on published, peer-reviewed scientific literature and are not proprietary to this tool. The software implementation, visual design, and user interface are original works. No affiliation with, endorsement by, or sponsorship from World Athletics, USA Track &amp; Field, or any national or international governing body is claimed or implied. Referenced researchers and publications are credited solely for attribution; no ownership of their work is claimed. Any commercial reproduction, resale, or redistribution of this simulator's codebase or design requires express written permission from the author.</p>
-        </div>
-
+      <div class="disc-block">
+        <h4>Predictive Models &amp; Sources</h4>
+        <p>This simulator implements established sports science models adapted for educational and informational use. The <strong>Riegel Power-Law</strong> formula is based on Pete Riegel's 1977 empirical research published in <em>American Scientist</em>. The <strong>Critical Speed</strong> model derives from foundational work by Hill (1925) and subsequent developments by Monod &amp; Scherrer (1965) and Morton (1996). The <strong>MSS/MAS Blend</strong> formula references methodology described in Loporto &amp; Mannion (2021), <em>Aerobic and Anaerobic Speed Predicts 800-m Running Performance in Young Recreational Runners</em> (PMC8176219). The <strong>Speed Reserve Ratio (SRR)</strong> framework is based on Sandford et al. (2019), <em>Anaerobic Speed Reserve: A Key Component of Elite Male 800-m Running</em> (PubMed 30300023). Ensemble weighting methodology is adapted from general principles of model averaging in predictive analytics and is not derived from any single proprietary source.</p>
       </div>
 
-      <div class="disc-bottom">
-        <p>© 2025 800m Race Strategy Simulator &nbsp;·&nbsp; Built for educational and performance analysis purposes &nbsp;·&nbsp; All predictions are estimates only &nbsp;·&nbsp; Use at your own discretion.</p>
-        <p class="disc-refs">References: Riegel (1977) &nbsp;·&nbsp; Monod &amp; Scherrer (1965) &nbsp;·&nbsp; Morton (1996) &nbsp;·&nbsp; Loporto &amp; Mannion, PMC8176219 (2021) &nbsp;·&nbsp; Sandford et al., PubMed 30300023 (2019)</p>
+      <div class="disc-block">
+        <h4>Not Medical or Training Advice</h4>
+        <p>The predictions, fatigue estimates, and pacing recommendations generated by this tool are <strong>purely informational and educational</strong>. They do not constitute medical advice, clinical exercise guidance, or personalised training prescription. Individual athletic performance is affected by factors this tool does not account for — including injury history, current fitness level, sleep, nutrition, altitude acclimatisation, psychological state, and race-day conditions. Always consult a qualified coach, sports scientist, or licensed physician before making decisions about your training or competition strategy. Do not use this tool to push through pain, illness, or injury.</p>
       </div>
+
+      <div class="disc-block">
+        <h4>Accuracy &amp; Limitations</h4>
+        <p>Predicted times are statistical estimates for <strong>outdoor</strong> track and field with inherent uncertainty. Typical model error for well-trained athletes is approximately <strong>±2–5 seconds</strong> for the 800m; errors may be larger for athletes whose profiles fall outside the collegiate-to-elite range on which these models were validated. Sex-adjustment coefficients are population-level averages and may not reflect individual variation. No warranty, express or implied, is made regarding the accuracy of any prediction. Results should not be used as the sole basis for race entry standards, scholarship decisions, medical clearance, or any consequential determination.</p>
+      </div>
+
+      <div class="disc-block">
+        <h4>Intellectual Property &amp; Commercial Use</h4>
+        <p>The mathematical formulas implemented here are based on published, peer-reviewed scientific literature and are not proprietary to this tool. The software implementation, visual design, and user interface are original works. No affiliation with, endorsement by, or sponsorship from World Athletics, USA Track &amp; Field, or any national or international governing body is claimed or implied. Referenced researchers and publications are credited solely for attribution; no ownership of their work is claimed. Any commercial reproduction, resale, or redistribution of this simulator's codebase or design requires express written permission from the author.</p>
+      </div>
+
     </div>
-  </footer>
+
+    <div class="disc-bottom">
+      <p>© 2025 800m Race Strategy Simulator &nbsp;·&nbsp; Built for educational and performance analysis purposes &nbsp;·&nbsp; All predictions are estimates only &nbsp;·&nbsp; Use at your own discretion.</p>
+      <p class="disc-refs">References: Riegel (1977) &nbsp;·&nbsp; Monod &amp; Scherrer (1965) &nbsp;·&nbsp; Morton (1996) &nbsp;·&nbsp; Loporto &amp; Mannion, PMC8176219 (2021) &nbsp;·&nbsp; Sandford et al., PubMed 30300023 (2019)</p>
+    </div>
+  </div>
+</footer>
 
 </div>
 
