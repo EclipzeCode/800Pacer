@@ -1,0 +1,254 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>800m Race Strategy Simulator</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+<div class="page-shell">
+
+<header class="hero">
+  <div class="hero-copy">
+    <p class="eyebrow">Track Performance Tool</p>
+    <h1>800m Race Strategy Simulator</h1>
+    <p class="hero-subtitle">
+      Enter your PRs and strategy. The simulator predicts your 800m time using an ensemble of
+      physiological models and animates every 100m split across both laps.
+    </p>
+  </div>
+  <div class="hero-stat-card">
+    <span class="stat-label">Predicted 800m</span>
+    <strong id="heroPredicted">—</strong>
+    <p id="heroInsight">Enter your PRs and run the simulation.</p>
+  </div>
+</header>
+
+
+<main class="layout-grid">
+
+  <!-- ── ROW 1: Controls (left) + Track Playback (right) ── -->
+
+  <section class="card control-card">
+    <div class="section-heading"><h2>Athlete Setup</h2></div>
+    <form id="simForm" class="control-form">
+
+      <label class="field">
+        <span>400m PR <em>(required)</em></span>
+        <input id="pr400" type="text" placeholder="e.g. 52.4" value="52.4">
+      </label>
+
+      <label class="field">
+        <span>1600m PR <em>(optional — enables Critical Speed model)</em></span>
+        <input id="pr1600" type="text" placeholder="e.g. 4:28.0">
+      </label>
+
+      <label class="field">
+        <span>Previous 800m <em>(optional — used as anchor)</em></span>
+        <input id="pr800" type="text" placeholder="e.g. 1:58.0">
+      </label>
+
+      <label class="field">
+        <span>Sex</span>
+        <select id="sex">
+          <option value="male" selected>Male</option>
+          <option value="female">Female</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span>Athlete profile</span>
+        <select id="profile">
+          <option value="speed">Speed / Sprinter type (SRR ≥ 1.58)</option>
+          <option value="balanced" selected>800m Specialist (SRR 1.48–1.57)</option>
+          <option value="endurance">Miler / Endurance type (SRR ≤ 1.47)</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span>Strategy style</span>
+        <select id="strategy">
+          <option value="even">Even Split</option>
+          <option value="negative" selected>Negative Split</option>
+          <option value="frontLoaded">Front Loaded</option>
+          <option value="sitAndKick">Sit and Kick</option>
+        </select>
+      </label>
+
+      <div class="button-row">
+        <button class="primary-btn" type="submit">Run Simulation</button>
+      </div>
+
+    </form>
+  </section>
+
+  <section class="card sim-card">
+    <div class="section-heading"><h2>Race Playback — 2 Laps (8 × 100m)</h2></div>
+
+    <div class="sim-metrics">
+      <div class="metric-pill">
+        <span>Elapsed</span>
+        <strong id="elapsedMetric">0:00.0</strong>
+      </div>
+      <div class="metric-pill">
+        <span>Projected Finish</span>
+        <strong id="projectionMetric">—</strong>
+      </div>
+      <div class="metric-pill">
+        <span>Fatigue</span>
+        <strong id="fatigueMetric">0%</strong>
+      </div>
+      <div class="metric-pill">
+        <span>Current Lap</span>
+        <strong id="lapMetric">—</strong>
+      </div>
+    </div>
+
+    <div class="track-wrap">
+      <svg id="trackSvg" class="track-svg" viewBox="0 0 760 320">
+        <defs>
+          <linearGradient id="trackGlow" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%"   stop-color="#2ef2c1"/>
+            <stop offset="100%" stop-color="#56a8ff"/>
+          </linearGradient>
+        </defs>
+        <rect x="0" y="0" width="760" height="320" class="track-backdrop"/>
+        <path
+          d="M 160 40 L 600 40 A 100 120 0 0 1 600 280 L 160 280 A 100 120 0 0 1 160 40 Z"
+          fill="none" stroke="rgba(46,242,193,0.08)" stroke-width="70"
+        />
+        <!--
+          Track path redrawn counter-clockwise so the runner immediately
+          enters the left curve (as in a real 800m start):
+            Start: top of left curve (160,40)
+            → Down left curve (arc CCW to 160,280)
+            → Right along bottom straight to (600,280)
+            → Up right curve (arc CCW to 600,40)
+            → Left along top straight back to (160,40)
+          sweep-flag=0 on both arcs = counter-clockwise
+        -->
+        <path
+          id="trackPath"
+          d="M 160 40
+             A 100 120 0 0 0 160 280
+             L 600 280
+             A 100 120 0 0 0 600 40
+             L 160 40 Z"
+          class="track-lane"
+        />
+        <line x1="160" y1="16" x2="160" y2="64"
+              stroke="rgba(255,255,255,0.55)" stroke-width="2.5" stroke-dasharray="5 3"/>
+        <text x="168" y="30" font-size="9" fill="rgba(255,255,255,0.45)"
+              font-family="Bahnschrift,sans-serif" letter-spacing="1">START / FINISH</text>
+        <text x="380" y="164" text-anchor="middle" font-size="10"
+              fill="rgba(148,174,202,0.28)" font-family="Bahnschrift,sans-serif" letter-spacing="3">800m · 2 LAPS</text>
+        <g id="splitMarkers"></g>
+        <circle id="runnerDot"   r="10" cx="160" cy="40" class="runner-dot"/>
+        <circle id="runnerPulse" r="12" cx="160" cy="40" class="runner-pulse">
+          <animate attributeName="r"       from="12" to="26" dur="1.8s" repeatCount="indefinite"/>
+          <animate attributeName="opacity" from="0.5" to="0" dur="1.8s" repeatCount="indefinite"/>
+        </circle>
+      </svg>
+    </div>
+
+    <div class="lap-strip">
+      <div class="lap-pill"><span>Lap 1 (400m)</span><strong id="lap1Time">—</strong></div>
+      <div class="lap-pill"><span>Lap 2 (400m)</span><strong id="lap2Time">—</strong></div>
+      <div class="lap-pill accent"><span>Split Ratio (L2/L1)</span><strong id="splitRatio">—</strong></div>
+    </div>
+  </section>
+
+
+  <!-- ── ROW 2: Full-width Split Breakdown ── -->
+
+  <section class="card table-card">
+    <div class="section-heading"><h2>100m Split Breakdown</h2></div>
+    <div class="table-inner">
+      <table>
+        <thead>
+          <tr>
+            <th>Dist</th>
+            <th>Lap</th>
+            <th>Split</th>
+            <th>Elapsed</th>
+            <th>vs Avg</th>
+            <th>Fatigue</th>
+          </tr>
+        </thead>
+        <tbody id="splitTableBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+
+  <!-- ── ROW 3: Model Predictions (left) + Fatigue Graph (right) ── -->
+
+  <section class="card model-card">
+    <div class="section-heading"><h2>Model Predictions</h2></div>
+    <div class="model-grid">
+      <div class="model-tile" data-model="riegel">
+        <span class="tile-label">Riegel Power-Law</span>
+        <strong id="riegelVal">—</strong>
+        <span class="tile-hint">Click to learn more ↗</span>
+      </div>
+      <div class="model-tile" data-model="cs">
+        <span class="tile-label">Critical Speed</span>
+        <strong id="csVal">—</strong>
+        <span class="tile-hint">Click to learn more ↗</span>
+      </div>
+      <div class="model-tile" data-model="blend">
+        <span class="tile-label">MSS / MAS Blend</span>
+        <strong id="blendVal">—</strong>
+        <span class="tile-hint">Click to learn more ↗</span>
+      </div>
+      <div class="model-tile accent" data-model="ensemble">
+        <span class="tile-label">Ensemble (Weighted Avg)</span>
+        <strong id="ensembleVal">—</strong>
+        <p id="ensembleCI" class="ensemble-ci">95% CI: —</p>
+        <span class="tile-hint">Click to learn more ↗</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="card graph-card">
+    <div class="section-heading"><h2>Fatigue &amp; Pace per 100m</h2></div>
+    <div id="graph-card-wrap" style="position:relative">
+      <svg id="fatigueGraph" viewBox="0 0 520 200" class="fatigue-graph">
+        <defs>
+          <linearGradient id="fatigueFill" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%"   stop-color="#2ef2c1" stop-opacity="0.5"/>
+            <stop offset="100%" stop-color="#2ef2c1" stop-opacity="0.04"/>
+          </linearGradient>
+          <linearGradient id="paceFill" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%"   stop-color="#56a8ff" stop-opacity="0.4"/>
+            <stop offset="100%" stop-color="#56a8ff" stop-opacity="0.04"/>
+          </linearGradient>
+        </defs>
+        <g id="graphGrid"></g>
+        <line id="lapDivider" x1="0" y1="0" x2="0" y2="0"
+              stroke="rgba(255,255,255,0.22)" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <path id="fatigueArea" style="fill:url(#fatigueFill)"></path>
+        <path id="fatigueLine" class="graph-line"></path>
+        <path id="paceArea"    style="fill:url(#paceFill)"></path>
+        <path id="paceLine"    class="graph-line"
+              style="stroke:var(--accent-2);stroke-width:2.5;stroke-dasharray:5 3"></path>
+        <g id="graphPoints"></g>
+        <g id="graphLabels"></g>
+      </svg>
+      <div id="graphTooltip" class="graph-tooltip"></div>
+    </div>
+    <div class="graph-legend">
+      <span class="legend-item accent-dot">Fatigue %</span>
+      <span class="legend-item accent2-dot">Pace (s/100m, normalized)</span>
+    </div>
+  </section>
+
+</main>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
