@@ -1,4 +1,4 @@
-﻿/* =============================================================
+/* =============================================================
    800m Race Strategy Simulator — script.js
    Models from: Executive Summary PDF
    ① Riegel:        T800 = T400 · (800/400)^1.06
@@ -609,9 +609,19 @@ function highlightMarker(segIndex) {
       dot.setAttribute("r",            "7");
       dot.setAttribute("stroke-width", "2.5");
       pulse.setAttribute("stroke",     activeRing);
-      // Update label to current lap's distance
-      lbl.textContent = seg.dist + "m";
-      lbl.setAttribute("fill", isLap2 ? "rgba(180,210,255,0.95)" : "rgba(255,255,255,0.95)");
+      // Crossfade label to current lap's distance
+      const newText  = seg.dist + "m";
+      const newColor = isLap2 ? "rgba(180,210,255,0.95)" : "rgba(255,255,255,0.95)";
+      if (lbl && lbl.textContent !== newText) {
+        lbl.style.opacity = "0";
+        setTimeout(() => {
+          lbl.textContent = newText;
+          lbl.setAttribute("fill", newColor);
+          lbl.style.opacity = "1";
+        }, 150);
+      } else if (lbl) {
+        lbl.setAttribute("fill", newColor);
+      }
     } else {
       // Inactive: determine what lap this physical position is currently on
       // (if we're in lap 2, positions already passed show their lap 2 label;
@@ -626,16 +636,34 @@ function highlightMarker(segIndex) {
         // Already visited this spot in lap 2 — show lap 2 distance, blue-dim
         dot.setAttribute("fill",   "rgba(86,168,255,0.25)");
         dot.setAttribute("stroke", "#56a8ff");
-        if (lbl && simulationState[pi + 4]) lbl.textContent = simulationState[pi + 4].dist + "m";
-        if (lbl) lbl.setAttribute("fill", "rgba(180,210,255,0.70)");
+        const newText = simulationState[pi + 4] ? simulationState[pi + 4].dist + "m" : lbl?.textContent;
+        if (lbl && newText && lbl.textContent !== newText) {
+          lbl.style.opacity = "0";
+          setTimeout(() => {
+            lbl.textContent = newText;
+            lbl.setAttribute("fill", "rgba(180,210,255,0.70)");
+            lbl.style.opacity = "1";
+          }, 150);
+        } else if (lbl) {
+          lbl.setAttribute("fill", "rgba(180,210,255,0.70)");
+        }
         if (pulse) pulse.setAttribute("stroke", "rgba(86,168,255,0.12)");
       } else {
         // Ahead or in lap 1 — show current lap's label, teal-dim
         dot.setAttribute("fill",   "rgba(46,242,193,0.25)");
         dot.setAttribute("stroke", "#2ef2c1");
         const baseIndex = isLap2 ? pi + 4 : pi;
-        if (lbl && simulationState[baseIndex]) lbl.textContent = simulationState[baseIndex].dist + "m";
-        if (lbl) lbl.setAttribute("fill", "rgba(255,255,255,0.75)");
+        const newText = simulationState[baseIndex] ? simulationState[baseIndex].dist + "m" : lbl?.textContent;
+        if (lbl && newText && lbl.textContent !== newText) {
+          lbl.style.opacity = "0";
+          setTimeout(() => {
+            lbl.textContent = newText;
+            lbl.setAttribute("fill", "rgba(255,255,255,0.75)");
+            lbl.style.opacity = "1";
+          }, 150);
+        } else if (lbl) {
+          lbl.setAttribute("fill", "rgba(255,255,255,0.75)");
+        }
         if (pulse) pulse.setAttribute("stroke", "rgba(46,242,193,0.12)");
       }
     }
@@ -691,11 +719,42 @@ function animateRunnerTo(fromProg, toProg, durationMs, onDone) {
   runnerRafId = requestAnimationFrame(frame);
 }
 
+/* ─────────────────────────────────────────────────────────
+   SMOOTH COUNTER ANIMATIONS
+   Interpolates a numeric value from `from` to `to` over
+   `durationMs`, calling `onFrame(value)` each rAF tick.
+   Returns a cancel function.
+───────────────────────────────────────────────────────── */
+function animateValue(from, to, durationMs, onFrame, easing) {
+  const easeFn = easing || (t => t);  // default linear
+  const startTime = performance.now();
+  let rafId;
+
+  function tick(now) {
+    const raw = Math.min((now - startTime) / durationMs, 1);
+    const t   = easeFn(raw);
+    onFrame(from + (to - from) * t);
+    if (raw < 1) {
+      rafId = requestAnimationFrame(tick);
+    } else {
+      onFrame(to);  // ensure we land exactly on the target
+    }
+  }
+
+  rafId = requestAnimationFrame(tick);
+  return () => cancelAnimationFrame(rafId);
+}
+
+// Track active counter cancel functions so we can stop them on clearReplay
+let cancelCounters = [];
+
 /* ── Replay ─────────────────────────────────────────────── */
 function clearReplay() {
   replayTimers.forEach(clearTimeout);
   replayTimers = [];
   if (runnerRafId) { cancelAnimationFrame(runnerRafId); runnerRafId = null; }
+  cancelCounters.forEach(fn => fn());
+  cancelCounters = [];
 }
 
 function startReplay() {
@@ -706,16 +765,26 @@ function startReplay() {
   placeRunner(0.001);
   if (simulationState) {
     document.querySelectorAll(".marker-group").forEach(g => {
-      const pi  = Number(g.dataset.posIndex);
-      const lbl = g.querySelector(".split-label");
-      const dot = g.querySelector(".split-marker");
+      const pi    = Number(g.dataset.posIndex);
+      const lbl   = g.querySelector(".split-label");
+      const dot   = g.querySelector(".split-marker");
       const pulse = g.querySelector(".split-pulse");
       if (lbl && simulationState[pi]) lbl.textContent = simulationState[pi].dist + "m";
       if (lbl) lbl.setAttribute("fill", "rgba(255,255,255,0.75)");
-      if (dot) { dot.setAttribute("fill", "rgba(46,242,193,0.25)"); dot.setAttribute("stroke", "#2ef2c1"); dot.setAttribute("r", "5"); dot.setAttribute("stroke-width", "1.5"); }
+      if (dot) {
+        dot.setAttribute("fill", "rgba(46,242,193,0.25)");
+        dot.setAttribute("stroke", "#2ef2c1");
+        dot.setAttribute("r", "5");
+        dot.setAttribute("stroke-width", "1.5");
+      }
       if (pulse) pulse.setAttribute("stroke", "rgba(46,242,193,0.12)");
     });
   }
+
+  // Reset counters to zero state
+  elapsedMetric.textContent = formatTime(0);
+  fatigueMetric.textContent = "0%";
+  lapMetric.textContent     = "Lap 1";
 
   const finalTime   = simulationState[simulationState.length - 1].elapsed;
   const segDuration = 700;   // ms per 100m segment step
@@ -723,31 +792,46 @@ function startReplay() {
   projectionMetric.textContent = formatTime(finalTime);
 
   simulationState.forEach((seg, i) => {
-    // Previous oval position — use a tiny offset at the very start
-    const prevProg = i === 0 ? 0.001 : simulationState[i - 1].ovalProgress;
-    const thisProg = seg.ovalProgress;
+    const prevSeg   = i === 0 ? null : simulationState[i - 1];
+    const prevProg  = i === 0 ? 0.001 : prevSeg.ovalProgress;
+    const thisProg  = seg.ovalProgress;
 
-    // Schedule each segment's START at i * segDuration
+    // Values to count FROM (previous segment's values, or zero at start)
+    const fromElapsed = prevSeg ? prevSeg.elapsed  : 0;
+    const fromFatigue = prevSeg ? prevSeg.fatigue  : 0;
+
     const id = setTimeout(() => {
-      // Update metrics
-      elapsedMetric.textContent = formatTime(seg.elapsed);
-      fatigueMetric.textContent = seg.fatigue + "%";
-      lapMetric.textContent     = `Lap ${seg.lap}`;
+      // Update lap indicator and table immediately (these are discrete)
+      lapMetric.textContent = `Lap ${seg.lap}`;
       highlightMarker(i);
-
       document.querySelectorAll("#splitTableBody tr").forEach((r, ri) => {
         r.classList.toggle("active-row", ri === i);
       });
 
-      // Detect lap boundary: when thisProg < prevProg the runner has crossed
-      // the start/finish and is beginning lap 2. Animate in two phases:
-      //   phase 1: prevProg → 0.9999 (complete the oval)
-      //   phase 2: 0.0001  → thisProg (begin the new lap)
+      // Animate elapsed time counter smoothly over the segment duration
+      const cancelElapsed = animateValue(
+        fromElapsed, seg.elapsed,
+        segDuration * 0.88,
+        val => { elapsedMetric.textContent = formatTime(val); },
+        t => t  // linear — time should count up evenly
+      );
+      cancelCounters.push(cancelElapsed);
+
+      // Animate fatigue counter with ease-out (slows as it approaches target)
+      const cancelFatigue = animateValue(
+        fromFatigue, seg.fatigue,
+        segDuration * 0.88,
+        val => { fatigueMetric.textContent = Math.round(val) + "%"; },
+        t => 1 - Math.pow(1 - t, 2)  // ease-out quad
+      );
+      cancelCounters.push(cancelFatigue);
+
+      // Runner path animation (with lap-boundary wrap handling)
       const isWrap = thisProg < prevProg;
       if (isWrap) {
-        const totalDist = (0.9999 - prevProg) + thisProg;
+        const totalDist  = (0.9999 - prevProg) + thisProg;
         const phase1Frac = totalDist > 0 ? (0.9999 - prevProg) / totalDist : 0.5;
-        const dur = segDuration * 0.9;
+        const dur        = segDuration * 0.9;
         animateRunnerTo(prevProg, 0.9999, dur * phase1Frac, () => {
           animateRunnerTo(0.0001, thisProg, dur * (1 - phase1Frac));
         });
@@ -1013,6 +1097,7 @@ function runSimulation() {
 
 /* ── Events ─────────────────────────────────────────────── */
 form.addEventListener("submit", e => { e.preventDefault(); runSimulation(); });
+document.getElementById("replayButton").addEventListener("click", startReplay);
 strategyInput.addEventListener("change", () => {
   document.body.dataset.strategy = strategyInput.value;
   if (simulationState) runSimulation();
