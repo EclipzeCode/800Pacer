@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   --bg: #07131d;
   --bg-elevated: rgba(11, 25, 37, 0.92);
   --panel: rgba(13, 29, 44, 0.82);
@@ -287,8 +287,9 @@ select:focus {
 
 /* Split markers — styled via JS setAttribute, not CSS classes */
 .split-marker  { cursor: default; }
-.split-label   { pointer-events: none; }
+.split-label   { pointer-events: none; transition: opacity 200ms ease; }
 .marker-group  { cursor: default; }
+.marker-bg     { transition: opacity 200ms ease; }
 
 /* Runner */
 .runner-dot {
