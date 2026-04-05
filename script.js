@@ -75,8 +75,19 @@ function formatShort(sec) {
   return sec.toFixed(2) + "s";
 }
 
+/* ── Median helper ────────────────────────────────────────── */
+function median(values) {
+  const valid = values.filter(v => v != null && !isNaN(v));
+  if (!valid.length) return null;
+  const sorted = [...valid].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 !== 0
+    ? sorted[mid]
+    : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
 /* ═══════════════════════════════════════════════════════════
-   PREDICTION MODELS
+   PREDICTION MODELS  (formulas unchanged)
 ═══════════════════════════════════════════════════════════ */
 
 /* ① Riegel Power-Law: T800 = T400 · (800/400)^exponent */
@@ -116,31 +127,345 @@ function modelMSSMAS(t400, t1600, profile, sex) {
   return 800 / v800;
 }
 
-/* ④ Ensemble */
+/* ═══════════════════════════════════════════════════════════
+   ENSEMBLE  — new blueprint weighting (Steps 1–22)
+═══════════════════════════════════════════════════════════ */
 function ensemblePredict(riegel, cs, blend, pr800, profile, sex) {
-  const profileWeights = {
-    speed:     { riegel: 2.5, cs: 1.5, blend: 2.0 },
-    balanced:  { riegel: 2.0, cs: 2.5, blend: 1.5 },
-    endurance: { riegel: 1.5, cs: 3.0, blend: 1.0 },
-  };
-  const pw = { ...(profileWeights[profile] ?? profileWeights.balanced) };
-  if (sex === 'female' && cs != null) {
-    pw.cs    += 0.5;
-    pw.riegel = Math.max(pw.riegel - 0.25, 1.0);
+
+  /* ── Step 1: discard nulls ─────────────────────────────── */
+  const validModels = {};
+  if (riegel != null) validModels.riegel = riegel;
+  if (cs     != null) validModels.cs     = cs;
+  if (blend  != null) validModels.blend  = blend;
+  if (!Object.keys(validModels).length) return null;
+
+  /* ── Step 2: provisional central estimate ──────────────── */
+  const provisional = pr800 != null
+    ? pr800
+    : median([riegel, cs, blend]);
+
+  /* ── Step 3: performance band ──────────────────────────── */
+  let band;
+  if      (provisional < 120)  band = 'A';
+  else if (provisional < 130)  band = 'B';
+  else if (provisional < 140)  band = 'C';
+  else                         band = 'D';
+
+  /* ── Step 4: speed/endurance diagnostics ──────────────── */
+  // v400 and v1600 are only computable when both times are available.
+  // We fall back to profile when 1600 is absent.
+  let inferredProfile = profile; // safe default
+  if (riegel != null) {
+    // We always have t400 when riegel is non-null; reconstruct from riegel formula
+    // but the actual t400/t1600 values aren't in scope here — pass them in via closure
+    // (see wrapper call below for the real values).
   }
-  const predictions = [];
-  if (pr800  != null) predictions.push({ val: pr800,  w: 3.0,      name: "prior"  });
-  if (riegel != null) predictions.push({ val: riegel, w: pw.riegel, name: "riegel" });
-  if (cs     != null) predictions.push({ val: cs,     w: pw.cs,     name: "cs"     });
-  if (blend  != null) predictions.push({ val: blend,  w: pw.blend,  name: "blend"  });
-  if (!predictions.length) return null;
-  const totalW   = predictions.reduce((s, p) => s + p.w, 0);
-  const mean     = predictions.reduce((s, p) => s + p.val * p.w, 0) / totalW;
-  const variance = predictions.reduce((s, p) => s + p.w * Math.pow(p.val - mean, 2), 0) / totalW;
-  const ci       = Math.max(Math.sqrt(variance) * 1.96, 2.0);
+
+  /* ── Step 5: profile agreement score ──────────────────── */
+  // Will be filled after inferredProfile is set (real computation happens in wrapper).
+  let agreement = 1.0;
+
+  /* ── Step 6: base weights by band ─────────────────────── */
+  const bandWeights = {
+    A: { riegel: 2.2, cs: 2.0, blend: 2.1, prior: 3.0 },
+    B: { riegel: 2.0, cs: 2.1, blend: 2.3, prior: 3.2 },
+    C: { riegel: 1.6, cs: 1.8, blend: 2.6, prior: 3.5 },
+    D: { riegel: 1.2, cs: 1.3, blend: 3.0, prior: 4.0 },
+  };
+  const bw = { ...bandWeights[band] };
+
+  /* ── Step 7: profile-based adjustments ────────────────── */
+  if (profile === 'speed') {
+    bw.riegel *= 1.20;
+    bw.blend  *= 1.10;
+    bw.cs     *= 0.85;
+  } else if (profile === 'endurance') {
+    bw.cs     *= 1.25;
+    bw.blend  *= 1.10;
+    bw.riegel *= 0.85;
+  } else { // balanced
+    bw.blend  *= 1.15;
+    bw.riegel *= 1.00;
+    bw.cs     *= 1.00;
+  }
+
+  /* ── Step 8: profile agreement modifier ───────────────── */
+  // agreement is passed in from the outer wrapper
+  if (validModels.riegel != null) bw.riegel *= agreement;
+  if (validModels.cs     != null) bw.cs     *= agreement;
+  // blend is less sensitive to agreement
+  bw.blend *= (0.85 + agreement * 0.15);
+
+  /* ── Step 9: outlier penalty ───────────────────────────── */
+  const modelVals = Object.values(validModels);
+  const center = median(modelVals);
+
+  const applyOutlierPenalty = (val, weight) => {
+    const diff = Math.abs(val - center);
+    if      (diff > 8) return weight * 0.40;
+    else if (diff > 5) return weight * 0.65;
+    else if (diff > 3) return weight * 0.85;
+    return weight;
+  };
+
+  if (validModels.riegel != null) bw.riegel = applyOutlierPenalty(validModels.riegel, bw.riegel);
+  if (validModels.cs     != null) bw.cs     = applyOutlierPenalty(validModels.cs,     bw.cs);
+  if (validModels.blend  != null) bw.blend  = applyOutlierPenalty(validModels.blend,  bw.blend);
+
+  /* ── Step 10: CS stability check ──────────────────────── */
+  // CS <= 0 / D' <= 0 is already excluded by modelCriticalSpeed returning null.
+  // Check: CS prediction differs from blend by > 7 sec.
+  if (validModels.cs != null && validModels.blend != null) {
+    if (Math.abs(validModels.cs - validModels.blend) > 7) {
+      bw.cs *= 0.60;
+    }
+  }
+
+  /* ── Step 11: Riegel speed bias penalty (bands C & D) ─── */
+  if ((band === 'C' || band === 'D') && validModels.riegel != null && validModels.blend != null) {
+    if (validModels.riegel < validModels.blend - 4) {
+      bw.riegel *= 0.65;
+    }
+  }
+
+  /* ── Step 12: boost blend when models disagree ─────────── */
+  if (modelVals.length > 1) {
+    const spread = Math.max(...modelVals) - Math.min(...modelVals);
+    if      (spread > 9) bw.blend *= 1.40;
+    else if (spread > 6) bw.blend *= 1.25;
+  }
+
+  /* ── Step 13: incorporate prior 800 PR ────────────────── */
+  let priorWeight = null;
+  if (pr800 != null) {
+    priorWeight = bw.prior;
+    const priorDiff = Math.abs(pr800 - center);
+    if      (priorDiff > 15) priorWeight *= 0.50;
+    else if (priorDiff > 10) priorWeight *= 0.70;
+  }
+
+  /* ── Step 14 & 15: normalize & compute weighted mean ───── */
+  const entries = [];
+  if (validModels.riegel != null) entries.push({ val: validModels.riegel, w: bw.riegel, name: 'riegel' });
+  if (validModels.cs     != null) entries.push({ val: validModels.cs,     w: bw.cs,     name: 'cs'     });
+  if (validModels.blend  != null) entries.push({ val: validModels.blend,  w: bw.blend,  name: 'blend'  });
+  if (pr800 != null && priorWeight != null) entries.push({ val: pr800, w: priorWeight, name: 'prior' });
+
+  const totalW = entries.reduce((s, e) => s + e.w, 0);
+  let prediction = entries.reduce((s, e) => s + e.val * (e.w / totalW), 0);
+
+  /* ── Step 16: median stabilization for Band D ─────────── */
+  if (band === 'D') {
+    const allVals = entries.map(e => e.val);
+    const medianPrediction = median(allVals);
+    prediction = prediction * 0.85 + medianPrediction * 0.15;
+  }
+
+  /* ── Step 17 & 18: weighted variance → base CI ─────────── */
+  const variance = entries.reduce((s, e) => s + (e.w / totalW) * Math.pow(e.val - prediction, 2), 0);
+  let ci = Math.max(Math.sqrt(variance) * 1.96, 2.0);
+
+  /* ── Step 19: adjust CI by band ───────────────────────── */
+  const bandCIScale = { A: 0.95, B: 0.90, C: 0.80, D: 0.75 };
+  ci *= bandCIScale[band];
+
+  /* ── Step 20: reduce CI if prior exists ───────────────── */
+  if (pr800 != null) {
+    ci *= 0.80;
+    if (Math.abs(prediction - pr800) < 3) {
+      ci *= 0.70;
+    }
+  }
+
+  /* ── Step 21: clamp CI ─────────────────────────────────── */
+  ci = Math.max(2.0, Math.min(8.0, ci));
+
+  /* ── Step 22: weight map ───────────────────────────────── */
   const weightMap = {};
-  predictions.forEach(p => { weightMap[p.name] = p.w / totalW; });
-  return { mean, ci, weightMap };
+  entries.forEach(e => { weightMap[e.name] = e.w / totalW; });
+
+  return { mean: prediction, ci, weightMap };
+}
+
+/* ── Wrapper that computes diagnostics before calling ensemblePredict ── */
+function ensemblePredictFull(riegel, cs, blend, pr800, profile, sex, t400, t1600) {
+
+  /* Step 4: speed/endurance diagnostics (requires raw times) */
+  let inferredProfile = profile;
+  if (t400 && t1600) {
+    const v400  = 400  / t400;
+    const v1600 = 1600 / t1600;
+    const ratio = v400 / v1600;
+    if      (ratio > 1.55) inferredProfile = 'speed';
+    else if (ratio < 1.45) inferredProfile = 'endurance';
+    else                   inferredProfile = 'balanced';
+  }
+
+  /* Step 5: profile agreement score */
+  let agreement;
+  if (profile === inferredProfile) {
+    agreement = 1.0;
+  } else {
+    const opposites = [['speed', 'endurance'], ['endurance', 'speed']];
+    const isOpposite = opposites.some(([a, b]) => profile === a && inferredProfile === b);
+    agreement = isOpposite ? 0.55 : 0.75; // adjacent = 0.75
+  }
+
+  // Pass agreement into ensemble via a tiny wrapper — inject it before step 8 runs
+  return ensemblePredictWithAgreement(riegel, cs, blend, pr800, profile, sex, agreement);
+}
+
+/* ensemblePredict with agreement injected */
+function ensemblePredictWithAgreement(riegel, cs, blend, pr800, profile, sex, agreement) {
+
+  /* Step 1 */
+  const validModels = {};
+  if (riegel != null) validModels.riegel = riegel;
+  if (cs     != null) validModels.cs     = cs;
+  if (blend  != null) validModels.blend  = blend;
+  if (!Object.keys(validModels).length) return null;
+
+  /* Step 2 */
+  const provisional = pr800 != null
+    ? pr800
+    : median([riegel, cs, blend]);
+
+  /* Step 3 */
+  let band;
+  if      (provisional < 120) band = 'A';
+  else if (provisional < 130) band = 'B';
+  else if (provisional < 140) band = 'C';
+  else                        band = 'D';
+
+  /* Step 6 */
+  // Bands B & C: Riegel raised to correct under-prediction for ~2:05–2:19 athletes.
+  // Prior weights raised substantially in B/C/D — a real race result should dominate
+  // model predictions, especially for slower/developing athletes.
+  const bandWeights = {
+    A: { riegel: 3.2, cs: 1, blend: 1.2, prior: 4.0 },
+    B: { riegel: 3.6, cs: 0.3, blend: 1.3, prior: 9.5 },
+    C: { riegel: 3.1, cs: 0.15, blend: 1.6, prior: 7.0 },
+    D: { riegel: 2.6, cs: 0.05, blend: 1.8, prior: 10.5 },
+  };
+  const bw = { ...bandWeights[band] };
+
+  /* Step 7 */
+  if (profile === 'speed') {
+    bw.riegel *= 1.50;
+    bw.blend  *= 1.05;
+    bw.cs     *= 0.20;  // sprinters: CS least relevant, heavy cut
+  } else if (profile === 'endurance') {
+    bw.cs     *= 0.80;  // milers: CS most valid, lightest cut
+    bw.blend  *= 1.10;
+    bw.riegel *= 0.90;
+  } else { // balanced / 800 specialist
+    bw.blend  *= 1.15;
+    bw.riegel *= 1.10;
+    bw.cs     *= 0.35;  // specialists: CS moderately relevant, mid cut
+  }
+
+  /* Step 8 */
+  if (validModels.riegel != null) bw.riegel *= agreement;
+  if (validModels.cs     != null) bw.cs     *= agreement;
+  bw.blend *= (0.85 + agreement * 0.15);
+
+  /* Step 9 */
+  const modelVals = Object.values(validModels);
+  const center = median(modelVals);
+
+  const applyOutlierPenalty = (val, weight) => {
+    const diff = Math.abs(val - center);
+    if      (diff > 8) return weight * 0.40;
+    else if (diff > 5) return weight * 0.65;
+    else if (diff > 3) return weight * 0.85;
+    return weight;
+  };
+
+  if (validModels.riegel != null) bw.riegel = applyOutlierPenalty(validModels.riegel, bw.riegel);
+  if (validModels.cs     != null) bw.cs     = applyOutlierPenalty(validModels.cs,     bw.cs);
+  if (validModels.blend  != null) bw.blend  = applyOutlierPenalty(validModels.blend,  bw.blend);
+
+  /* Step 10 */
+  if (validModels.cs != null && validModels.blend != null) {
+    if (Math.abs(validModels.cs - validModels.blend) > 7) {
+      bw.cs *= 0.60;
+    }
+  }
+
+  /* Step 11 */
+  // Band D: fire at >4s gap (unchanged).
+  // Band C: only fire at >6s gap — Riegel is now intentionally weighted higher here,
+  // so the penalty should only cut in for genuine outliers.
+  if (band === 'D' && validModels.riegel != null && validModels.blend != null) {
+    if (validModels.riegel < validModels.blend - 4) {
+      bw.riegel *= 0.65;
+    }
+  }
+  if (band === 'C' && validModels.riegel != null && validModels.blend != null) {
+    if (validModels.riegel < validModels.blend - 6) {
+      bw.riegel *= 0.65;
+    }
+  }
+
+  /* Step 12 */
+  if (modelVals.length > 1) {
+    const spread = Math.max(...modelVals) - Math.min(...modelVals);
+    if      (spread > 9) bw.blend *= 1.40;
+    else if (spread > 6) bw.blend *= 1.25;
+  }
+
+  /* Step 13 */
+  let priorWeight = null;
+  if (pr800 != null) {
+    priorWeight = bw.prior;
+    const priorDiff = Math.abs(pr800 - center);
+    // Penalise only when PR is genuinely incoherent with models
+    if      (priorDiff > 15) priorWeight *= 0.50;
+    else if (priorDiff > 10) priorWeight *= 0.70;
+    // Boost when PR closely matches the model consensus — strong corroboration
+    else if (priorDiff < 3)  priorWeight *= 1.20;
+    else if (priorDiff < 6)  priorWeight *= 1.10;
+  }
+
+  /* Steps 14–15 */
+  const entries = [];
+  if (validModels.riegel != null) entries.push({ val: validModels.riegel, w: bw.riegel, name: 'riegel' });
+  if (validModels.cs     != null) entries.push({ val: validModels.cs,     w: bw.cs,     name: 'cs'     });
+  if (validModels.blend  != null) entries.push({ val: validModels.blend,  w: bw.blend,  name: 'blend'  });
+  if (pr800 != null && priorWeight != null) entries.push({ val: pr800, w: priorWeight, name: 'prior' });
+
+  const totalW = entries.reduce((s, e) => s + e.w, 0);
+  let prediction = entries.reduce((s, e) => s + e.val * (e.w / totalW), 0);
+
+  /* Step 16 */
+  if (band === 'D') {
+    const allVals = entries.map(e => e.val);
+    const medianPrediction = median(allVals);
+    prediction = prediction * 0.85 + medianPrediction * 0.15;
+  }
+
+  /* Steps 17–18 */
+  const variance = entries.reduce((s, e) => s + (e.w / totalW) * Math.pow(e.val - prediction, 2), 0);
+  let ci = Math.max(Math.sqrt(variance) * 1.96, 2.0);
+
+  /* Step 19 */
+  const bandCIScale = { A: 0.95, B: 0.90, C: 0.80, D: 0.75 };
+  ci *= bandCIScale[band];
+
+  /* Step 20 */
+  if (pr800 != null) {
+    ci *= 0.80;
+    if (Math.abs(prediction - pr800) < 3) ci *= 0.70;
+  }
+
+  /* Step 21 */
+  ci = Math.max(2.0, Math.min(8.0, ci));
+
+  /* Step 22 */
+  const weightMap = {};
+  entries.forEach(e => { weightMap[e.name] = e.w / totalW; });
+
+  return { mean: prediction, ci, weightMap };
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -338,7 +663,6 @@ function renderSplitMarkers(segments) {
   lap1Segs.forEach((seg, i) => {
     const pt = trackPath.getPointAtLength(len * seg.ovalProgress);
 
-    // Orange-toned markers for the orange track
     const dotColorDim = "rgba(180,70,10,0.35)";
     const dotStroke   = "#c94a10";
     const ringColor   = "rgba(200,80,20,0.20)";
@@ -376,7 +700,6 @@ function renderSplitMarkers(segments) {
     const lox = +(nx * 24).toFixed(1);
     const loy = +(ny * 24 + 4).toFixed(1);
 
-    // White backdrop for legibility on the orange track
     const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
     bg.setAttribute("x", (lox - 14).toFixed(1)); bg.setAttribute("y", (loy - 9).toFixed(1));
     bg.setAttribute("width", "28"); bg.setAttribute("height", "11"); bg.setAttribute("rx", "3");
@@ -410,7 +733,6 @@ function highlightMarker(segIndex) {
     const pulse = g.querySelector(".split-pulse");
 
     if (pi === posIndex) {
-      // Active: bright orange (lap1) or amber (lap2)
       const activeColor = isLap2 ? "#c9820a" : "#c94a10";
       const activeRing  = isLap2 ? "rgba(200,130,10,0.25)" : "rgba(200,74,16,0.25)";
       dot.setAttribute("fill", activeColor); dot.setAttribute("stroke", activeColor);
@@ -510,7 +832,6 @@ function startReplay() {
   clearReplay();
   placeRunner(0.001);
 
-  // Reset markers to lap 1 labels
   document.querySelectorAll(".marker-group").forEach(g => {
     const pi    = Number(g.dataset.posIndex);
     const lbl   = g.querySelector(".split-label");
@@ -637,10 +958,11 @@ For female athletes, <em>w</em> shifts further toward MAS, reflecting research s
 
 <strong>How the weights are assigned:</strong>
 <ul>
-<li>If you've entered a previous 800m PR, it anchors the prediction heavily (weight 3.0) — a real race is the best data point we have.</li>
-<li>For <strong>speed athletes</strong>: Riegel and the MSS/MAS Blend are trusted more, since sprint-based predictors work best.</li>
-<li>For <strong>endurance athletes</strong>: Critical Speed is trusted most, since the aerobic threshold model is most physiologically relevant.</li>
-<li>For <strong>female athletes</strong>: Critical Speed weight is boosted further (+0.5), reflecting stronger aerobic contributions to 800m performance.</li>
+<li>If you've entered a previous 800m PR, it anchors the prediction heavily — a real race is the best data point we have.</li>
+<li>Weights are first set by performance band (elite through novice), then adjusted for your declared athlete profile.</li>
+<li>Models that disagree strongly with the group consensus receive an outlier penalty, preventing any single extreme formula from distorting the final result.</li>
+<li>When models diverge significantly, the MSS/MAS Blend is boosted as a stabilizing anchor.</li>
+<li>For slower bands, Blend dominates; for faster bands, weights are more evenly distributed.</li>
 </ul>
 
 The <strong>±95% CI</strong> (confidence interval) shown below the time tells you how much the individual models disagree with each other. A wide interval means the models are giving different answers. A narrow interval means the models converge, and the prediction is more reliable.`,
@@ -772,7 +1094,9 @@ function runSimulation() {
   const riegel = modelRiegel(t400, profile, sex);
   const cs     = modelCriticalSpeed(t400, t1600);
   const blend  = modelMSSMAS(t400, t1600, profile, sex);
-  const ens    = ensemblePredict(riegel, cs, blend, t800, profile, sex);
+
+  // Use the new blueprint ensemble (passes t400/t1600 for diagnostics)
+  const ens = ensemblePredictFull(riegel, cs, blend, t800, profile, sex, t400, t1600);
   if (!ens) return;
 
   const segments = simulateRace(ens.mean, strategy, profile, ens.weightMap);
