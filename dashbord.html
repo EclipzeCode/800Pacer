@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — 800m Time Calculator</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" type="image/png" href="800timecalcfavicon.png">
+<script defer src="/_vercel/insights/script.js"></script>
+<style>
+/* ── Dashboard layout ──────────────────────────────────── */
+.dash-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto;
+  gap: 16px;
+}
+
+.dash-profile-card { grid-column: 1; grid-row: 1; }
+.dash-goal-card    { grid-column: 2; grid-row: 1; }
+.dash-history-card { grid-column: 1 / -1; grid-row: 2; }
+.dash-racelog-card { grid-column: 1 / -1; grid-row: 3; }
+
+@media (max-width: 1100px) {
+  .dash-grid { grid-template-columns: 1fr; }
+  .dash-profile-card, .dash-goal-card,
+  .dash-history-card, .dash-racelog-card {
+    grid-column: 1; grid-row: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .log-form   { grid-template-columns: 1fr; }
+  .pr-row     { gap: 8px; }
+  .pr-chip    { min-width: 70px; flex: 1 1 calc(50% - 4px); }
+}
+
+/* ── Profile chips ─────────────────────────────────────── */
+.pr-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.pr-chip {
+  background: var(--bg-surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 90px;
+}
+.pr-chip span   { font-size: 0.72rem; color: var(--text-secondary); letter-spacing: 0.04em; text-transform: uppercase; }
+.pr-chip strong { font-size: 1.05rem; color: var(--text); letter-spacing: -0.01em; }
+
+/* ── SRR bar ────────────────────────────────────────────── */
+.srr-wrap {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.srr-label-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+.srr-track {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--bg-surface);
+  border: 1px solid var(--line);
+  position: relative;
+  overflow: visible;
+}
+.srr-dot {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid #fff;
+  box-shadow: 0 0 6px rgba(232,93,32,0.5);
+}
+.srr-value { margin-top: 8px; font-size: 0.82rem; color: var(--text-secondary); }
+.srr-value strong { color: var(--text); }
+
+.band-badge {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.73rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.band-A { background: rgba(100,200,120,0.15); color: #2d8a4e; border: 1px solid rgba(100,200,120,0.3); }
+.band-B { background: rgba(232,93,32,0.12);  color: var(--accent); border: 1px solid rgba(232,93,32,0.25); }
+.band-C { background: rgba(100,140,220,0.12); color: #3a6fcf; border: 1px solid rgba(100,140,220,0.25); }
+.band-D { background: rgba(160,160,160,0.12); color: #666; border: 1px solid rgba(160,160,160,0.25); }
+
+/* ── Goal card ─────────────────────────────────────────── */
+.goal-form { display: flex; gap: 8px; margin-top: 12px; }
+.goal-form input {
+  flex: 1;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font-size: 0.92rem;
+  font-family: inherit;
+  background: var(--bg-surface);
+  color: var(--text);
+  transition: border-color 150ms;
+}
+.goal-form input:focus { outline: none; border-color: var(--accent); }
+
+.goal-gap { margin-top: 14px; font-size: 0.88rem; color: var(--text-secondary); }
+.goal-gap strong { color: var(--text); font-size: 1.05rem; }
+
+.goal-progress-wrap {
+  margin-top: 12px;
+  height: 8px;
+  background: var(--bg-surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.goal-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #ffab5e);
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+.goal-note { margin-top: 7px; font-size: 0.73rem; color: var(--text-secondary); }
+
+/* ── History chart ─────────────────────────────────────── */
+.chart-svg { width: 100%; height: auto; display: block; }
+.chart-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+}
+.chart-empty a { color: var(--accent); text-decoration: none; }
+.chart-empty a:hover { text-decoration: underline; }
+
+/* ── Race log ──────────────────────────────────────────── */
+.log-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  gap: 8px;
+  margin-bottom: 16px;
+  align-items: end;
+}
+.log-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+.log-form input {
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  font-family: inherit;
+  background: var(--bg-surface);
+  color: var(--text);
+  transition: border-color 150ms;
+}
+.log-form input:focus { outline: none; border-color: var(--accent); }
+
+.log-add-btn {
+  padding: 9px 16px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 150ms;
+  align-self: end;
+}
+.log-add-btn:hover { background: var(--accent-light); }
+
+.delta-pos { color: #e85d20; font-weight: 600; }
+.delta-neg { color: #2d8a4e; font-weight: 600; }
+.log-del-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 120ms, color 120ms;
+}
+.log-del-btn:hover { background: rgba(200,0,0,0.08); color: #c0392b; }
+
+/* ── Empty / first-visit state ─────────────────────────── */
+.dash-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-secondary);
+  grid-column: 1 / -1;
+}
+.dash-empty h2 { font-size: 1.4rem; margin-bottom: 10px; color: var(--text); }
+.dash-empty p  { margin-bottom: 22px; max-width: 380px; margin-left: auto; margin-right: auto; line-height: 1.6; }
+.dash-empty a.primary-btn {
+  display: inline-block;
+  text-decoration: none;
+  padding: 11px 26px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 0.92rem;
+  transition: background 150ms;
+}
+.dash-empty a.primary-btn:hover { background: var(--accent-light); }
+</style>
+</head>
+
+<body>
+<header class="header">
+  <a href="index.html" class="logo">Track Race Predictor</a>
+  <nav class="navbar">
+    <a href="index.html">Race Predictor</a>
+    <a href="training.html">Training</a>
+    <a href="dashboard.html" class="active">Dashboard</a>
+  </nav>
+</header>
+
+<div class="page-shell">
+
+<header class="hero">
+  <div class="hero-copy">
+    <p class="eyebrow">Athlete Hub</p>
+    <h1>Your Dashboard</h1>
+    <p class="hero-subtitle">
+      Track your 800m prediction over time, log race results, and see how your fitness is progressing.
+    </p>
+  </div>
+  <div class="hero-stat-card">
+    <span class="stat-label">Current Predicted 800m</span>
+    <strong id="heroLatest">—</strong>
+    <p id="heroSub" style="font-size:0.8rem;color:var(--text-secondary);margin:4px 0 0">
+      Run the predictor to generate your first estimate.
+    </p>
+  </div>
+</header>
+
+<main id="dashMain" class="dash-grid">
+  <!-- populated by JS -->
+</main>
+
+</div>
+
+<script src="script.js"></script>
+<script>
+"use strict";
+
+const BAND_META = {
+  A: { label: "Band A — Elite",        desc: "Sub-2:00 range. National/international level.",   cls: "band-A" },
+  B: { label: "Band B — Sub-Elite",    desc: "2:00–2:10 range. High-level collegiate or club.", cls: "band-B" },
+  C: { label: "Band C — Competitive",  desc: "2:10–2:20 range. Strong club athlete.",           cls: "band-C" },
+  D: { label: "Band D — Developing",   desc: "2:20+ range. Building aerobic base and speed.",  cls: "band-D" },
+};
+
+function loadStorage() {
+  const safe = (key, fallback) => {
+    try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch (_) { return fallback; }
+  };
+  return {
+    profile : safe("athleteProfile",    null),
+    history : safe("predictionHistory", []),
+    raceLog : safe("raceLog",           []),
+    goal    : safe("athleteGoal",       null),
+  };
+}
+
+function saveRaceLog(log) {
+  try { localStorage.setItem("raceLog", JSON.stringify(log)); } catch (_) {}
+}
+
+function saveGoal(goal) {
+  try { localStorage.setItem("athleteGoal", JSON.stringify(goal)); } catch (_) {}
+}
+
+function fmtTime(sec) {
+  if (!sec || isNaN(sec)) return "—";
+  const m = Math.floor(sec / 60);
+  const s = (sec % 60).toFixed(2).padStart(5, "0");
+  return `${m}:${s}`;
+}
+
+function fmtDate(ts) {
+  return new Date(ts).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function parseTimeStr(str) {
+  if (!str || !str.trim()) return null;
+  const parts = str.trim().split(":");
+  const t = parts.length === 2 ? Number(parts[0]) * 60 + Number(parts[1]) : Number(str);
+  return isNaN(t) || t <= 0 ? null : t;
+}
+
+/* ── Hero ──────────────────────────────────────────────── */
+function renderHero(history) {
+  const heroLatest = document.getElementById("heroLatest");
+  const heroSub    = document.getElementById("heroSub");
+  if (!history.length) return;
+  const latest = history[history.length - 1];
+  if (heroLatest) heroLatest.textContent = fmtTime(latest.predicted);
+  if (heroSub) {
+    const prev = history.length > 1 ? history[history.length - 2].predicted : null;
+    if (prev) {
+      const delta = latest.predicted - prev;
+      const sign  = delta < 0 ? "▼" : "▲";
+      const color = delta < 0 ? "#2d8a4e" : "#e85d20";
+      heroSub.innerHTML = `<span style="color:${color}">${sign} ${Math.abs(delta).toFixed(2)}s vs previous estimate</span>`;
+    } else {
+      heroSub.textContent = `Last updated ${fmtDate(latest.date)}`;
+    }
+  }
+}
+
+/* ── Profile card ──────────────────────────────────────── */
+function renderProfileCard(profile) {
+  const profileNames = { speed: "Speed / Sprinter", balanced: "800m Specialist", endurance: "Miler / Endurance" };
+  const srr = (profile.t400 && profile.t1600)
+    ? ((400 / profile.t400) / (1600 / profile.t1600)).toFixed(3)
+    : null;
+  const h  = JSON.parse(localStorage.getItem("predictionHistory") || "[]");
+  const bm = h.length ? BAND_META[h[h.length - 1].band] : null;
+
+  const srrNum   = srr ? parseFloat(srr) : null;
+  const srrPct   = srrNum ? Math.max(0, Math.min(100, (srrNum - 1.30) / 0.40 * 100)) : 50;
+  const srrInterp = srrNum
+    ? srrNum >= 1.58
+      ? "Speed-dominant — more aerobic work will unlock your 800m ceiling."
+      : srrNum <= 1.47
+        ? "Aerobic-dominant — focused speed work at R-pace will sharpen your kick."
+        : "Well-balanced 800m profile — maintain both systems."
+    : "";
+
+  return `
+  <div class="card dash-profile-card">
+    <div class="section-heading">
+      <h2>Athlete Profile</h2>
+      <a href="index.html" style="font-size:0.78rem;color:var(--accent);text-decoration:none;margin-left:auto">Update PRs ↗</a>
+    </div>
+    <div class="pr-row">
+      <div class="pr-chip"><span>400m PR</span><strong>${profile.t400 ? fmtTime(profile.t400) : "—"}</strong></div>
+      <div class="pr-chip"><span>1600m PR</span><strong>${profile.t1600 ? fmtTime(profile.t1600) : "—"}</strong></div>
+      <div class="pr-chip"><span>800m PR</span><strong>${profile.t800 ? fmtTime(profile.t800) : "—"}</strong></div>
+      <div class="pr-chip"><span>Profile</span><strong style="font-size:0.82rem">${profileNames[profile.profile] ?? "—"}</strong></div>
+    </div>
+    ${srr ? `
+    <div class="srr-wrap">
+      <div class="srr-label-row">
+        <span>Sprinter (1.30)</span>
+        <span>SRR: ${srr}</span>
+        <span>Miler (1.70)</span>
+      </div>
+      <div class="srr-track"><div class="srr-dot" style="left:${srrPct.toFixed(1)}%"></div></div>
+      <p class="srr-value">${srrInterp}</p>
+    </div>` : ""}
+    ${bm ? `<span class="band-badge ${bm.cls}">${bm.label}</span>
+            <span style="font-size:0.78rem;color:var(--text-secondary);margin-left:8px">${bm.desc}</span>` : ""}
+  </div>`;
+}
+
+/* ── Goal card ─────────────────────────────────────────── */
+function renderGoalCard(goal, history) {
+  const latestPred = history.length ? history[history.length - 1].predicted : null;
+  const firstPred  = history.length > 1 ? history[0].predicted : latestPred;
+  const goalSec    = goal ? goal.goalTime : null;
+
+  let progressPct = 0;
+  let gapStr = "";
+  if (goalSec && latestPred) {
+    const gap = latestPred - goalSec;
+    gapStr = gap > 0
+      ? `${gap.toFixed(2)}s above goal`
+      : `${Math.abs(gap).toFixed(2)}s under goal — you're there!`;
+    if (firstPred && firstPred > goalSec) {
+      progressPct = Math.max(0, Math.min(100, (firstPred - latestPred) / (firstPred - goalSec) * 100));
+    }
+  }
+
+  return `
+  <div class="card dash-goal-card">
+    <div class="section-heading"><h2>Goal Time</h2></div>
+    <div class="goal-form">
+      <input id="goalInput" type="text" placeholder="e.g. 1:55.0" value="${goalSec ? fmtTime(goalSec) : ""}">
+      <button class="log-add-btn" id="goalSaveBtn">Save</button>
+    </div>
+    <div class="goal-gap">
+      Gap: <strong>${goalSec && latestPred ? gapStr : "Set a goal to track your progress."}</strong>
+    </div>
+    ${goalSec && latestPred ? `
+    <div class="goal-progress-wrap">
+      <div class="goal-progress-bar" style="width:${progressPct.toFixed(1)}%"></div>
+    </div>
+    <p class="goal-note">${progressPct.toFixed(0)}% of the gap closed since first estimate.</p>` : ""}
+  </div>`;
+}
+
+/* ── History chart ─────────────────────────────────────── */
+function renderHistoryChart(history, goal) {
+  if (!history.length) {
+    return `
+    <div class="card dash-history-card">
+      <div class="section-heading"><h2>Prediction History</h2></div>
+      <div class="chart-empty">
+        No history yet. <a href="index.html">Run the predictor</a> to start tracking your progress.
+      </div>
+    </div>`;
+  }
+
+  const W = 620, H = 190, PX = 52, PY = 18, usableW = W - PX * 2, usableH = H - PY * 2;
+  const vals   = history.map(h => h.predicted);
+  const minVal = Math.min(...vals) - 2;
+  const maxVal = Math.max(...vals) + 2;
+  const range  = maxVal - minVal || 4;
+  const goalSec = goal ? goal.goalTime : null;
+
+  const cx = i => PX + usableW * (i / Math.max(history.length - 1, 1));
+  const cy = v => PY + usableH - usableH * ((v - minVal) / range);
+
+  const pts = history.map((h, i) => `${cx(i).toFixed(1)},${cy(h.predicted).toFixed(1)}`).join(" ");
+
+  const areaPath = history.length > 1
+    ? `M ${cx(0).toFixed(1)},${(PY + usableH).toFixed(1)} ` +
+      history.map((h, i) => `L ${cx(i).toFixed(1)},${cy(h.predicted).toFixed(1)}`).join(" ") +
+      ` L ${cx(history.length - 1).toFixed(1)},${(PY + usableH).toFixed(1)} Z`
+    : "";
+
+  const goalY = goalSec ? cy(goalSec) : null;
+  const goalLine = goalY && goalY > PY && goalY < PY + usableH
+    ? `<line x1="${PX}" y1="${goalY.toFixed(1)}" x2="${PX + usableW}" y2="${goalY.toFixed(1)}"
+           stroke="rgba(100,200,120,0.65)" stroke-width="1.5" stroke-dasharray="6 4"/>
+       <text x="${PX + usableW + 4}" y="${(goalY + 4).toFixed(1)}" font-size="9"
+             fill="rgba(100,200,120,0.8)" font-family="Bahnschrift,sans-serif">Goal</text>`
+    : "";
+
+  const indices = [...new Set([0, Math.floor((history.length - 1) / 2), history.length - 1])];
+  const xLabels = indices.map(i => `
+    <text x="${cx(i).toFixed(1)}" y="${H - 2}" text-anchor="middle" font-size="8.5"
+          fill="rgba(100,100,100,0.55)" font-family="sans-serif">${fmtDate(history[i].date)}</text>`).join("");
+
+  const yLabels = [0, 0.5, 1].map(f => {
+    const v = minVal + range * f;
+    return `<text x="${PX - 4}" y="${(cy(v) + 3).toFixed(1)}" text-anchor="end" font-size="8.5"
+                  fill="rgba(100,100,100,0.55)" font-family="sans-serif">${fmtTime(v)}</text>`;
+  }).join("");
+
+  const dots = history.map((h, i) => {
+    const c = { A: "#2d8a4e", B: "#e85d20", C: "#3a6fcf", D: "#888" }[h.band] ?? "#e85d20";
+    return `<circle cx="${cx(i).toFixed(1)}" cy="${cy(h.predicted).toFixed(1)}" r="5"
+                    fill="${c}" stroke="#fff" stroke-width="1.5"/>`;
+  }).join("");
+
+  return `
+  <div class="card dash-history-card">
+    <div class="section-heading">
+      <h2>Prediction History</h2>
+      <span style="font-size:0.75rem;color:var(--text-secondary);margin-left:auto">
+        ${history.length} estimate${history.length !== 1 ? "s" : ""}
+      </span>
+    </div>
+    <svg class="chart-svg" viewBox="0 0 ${W} ${H}">
+      <defs>
+        <linearGradient id="histFill" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%"   stop-color="#e85d20" stop-opacity="0.18"/>
+          <stop offset="100%" stop-color="#e85d20" stop-opacity="0.02"/>
+        </linearGradient>
+      </defs>
+      ${yLabels}
+      ${xLabels}
+      ${areaPath ? `<path d="${areaPath}" fill="url(#histFill)"/>` : ""}
+      <polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round"/>
+      ${goalLine}
+      ${dots}
+    </svg>
+    <p style="font-size:0.74rem;color:var(--text-secondary);margin-top:6px">
+      Dots colored by band:
+      <span style="color:#2d8a4e">■ Elite</span>
+      <span style="color:#e85d20;margin-left:6px">■ Sub-elite</span>
+      <span style="color:#3a6fcf;margin-left:6px">■ Competitive</span>
+      <span style="color:#888;margin-left:6px">■ Developing</span>
+    </p>
+  </div>`;
+}
+
+/* ── Race log ──────────────────────────────────────────── */
+function renderRaceLog(raceLog, history) {
+  const rows = [...raceLog].sort((a, b) => b.date - a.date).map(entry => {
+    let delta = null;
+    if (history.length) {
+      const closest = history.reduce((best, h) =>
+        Math.abs(h.date - entry.date) < Math.abs(best.date - entry.date) ? h : best
+      );
+      if (Math.abs(closest.date - entry.date) < 30 * 24 * 3600 * 1000) {
+        delta = entry.time - closest.predicted;
+      }
+    }
+    const origIdx  = raceLog.indexOf(entry);
+    const deltaStr = delta !== null
+      ? `<span class="${delta > 0 ? "delta-pos" : "delta-neg"}">${delta > 0 ? "+" : ""}${delta.toFixed(2)}s</span>`
+      : "—";
+    return `<tr>
+      <td>${fmtDate(entry.date)}</td>
+      <td>${fmtTime(entry.time)}</td>
+      <td>${entry.venue || "—"}</td>
+      <td>${deltaStr}</td>
+      <td><button class="log-del-btn" data-idx="${origIdx}" title="Delete entry">✕</button></td>
+    </tr>`;
+  }).join("");
+
+  return `
+  <div class="card dash-racelog-card">
+    <div class="section-heading"><h2>Race Log</h2></div>
+    <div class="log-form">
+      <label>Date<input id="logDate" type="date" value="${new Date().toISOString().slice(0,10)}"></label>
+      <label>Finish Time<input id="logTime" type="text" placeholder="e.g. 1:58.4"></label>
+      <label>Venue / Meet<input id="logVenue" type="text" placeholder="optional"></label>
+      <button class="log-add-btn" id="logAddBtn">+ Add Race</button>
+    </div>
+    <div class="table-inner">
+      <table>
+        <thead><tr><th>Date</th><th>Time</th><th>Venue</th><th>vs Prediction</th><th></th></tr></thead>
+        <tbody id="logBody">
+          ${rows || `<tr><td colspan="5" style="text-align:center;padding:18px;color:var(--text-secondary);font-size:0.88rem">No races logged yet — add your first result above.</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+    <p style="font-size:0.74rem;color:var(--text-secondary);margin-top:10px">
+      "vs Prediction" compares your actual finish to the nearest saved estimate within 30 days.
+      <span style="color:#2d8a4e">Green = faster</span> than predicted,
+      <span style="color:#e85d20">orange = slower</span>.
+    </p>
+  </div>`;
+}
+
+/* ── Main render ───────────────────────────────────────── */
+function renderDashboard() {
+  const { profile, history, raceLog, goal } = loadStorage();
+  const main = document.getElementById("dashMain");
+  if (!main) return;
+
+  if (!profile && !history.length) {
+    main.innerHTML = `
+      <div class="dash-empty">
+        <h2>Set up your athlete profile</h2>
+        <p>Run the 800m predictor once to save your PRs. Your dashboard will track every estimate, race result, and your progress toward your goal.</p>
+        <a href="index.html" class="primary-btn">Go to Race Predictor ↗</a>
+      </div>`;
+    return;
+  }
+
+  renderHero(history);
+
+  const parts = [];
+  if (profile) parts.push(renderProfileCard(profile));
+  parts.push(renderGoalCard(goal, history));
+  parts.push(renderHistoryChart(history, goal));
+  parts.push(renderRaceLog(raceLog, history));
+  main.innerHTML = parts.join("");
+
+  document.getElementById("goalSaveBtn")?.addEventListener("click", () => {
+    const t = parseTimeStr(document.getElementById("goalInput")?.value);
+    if (!t || t < 60 || t > 400) { alert("Enter a valid goal time, e.g. 1:55.0"); return; }
+    saveGoal({ goalTime: t, setAt: Date.now() });
+    renderDashboard();
+  });
+
+  document.getElementById("logAddBtn")?.addEventListener("click", () => {
+    const t = parseTimeStr(document.getElementById("logTime")?.value);
+    if (!t || t < 60 || t > 400) { alert("Enter a valid finish time, e.g. 1:58.4"); return; }
+    const { raceLog: log } = loadStorage();
+    const dateStr = document.getElementById("logDate")?.value;
+    log.push({
+      date  : dateStr ? new Date(dateStr).getTime() : Date.now(),
+      time  : t,
+      venue : document.getElementById("logVenue")?.value?.trim() || "",
+    });
+    saveRaceLog(log);
+    renderDashboard();
+  });
+
+  document.querySelectorAll(".log-del-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const { raceLog: log } = loadStorage();
+      log.splice(parseInt(btn.dataset.idx, 10), 1);
+      saveRaceLog(log);
+      renderDashboard();
+    });
+  });
+}
+
+document.addEventListener("DOMContentLoaded", renderDashboard);
+</script>
+</body>
+</html>
