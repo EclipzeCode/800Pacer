@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Training — 800m Time Calculator</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" type="image/png" href="800timecalcfavicon.png">
+<script defer src="/_vercel/insights/script.js"></script>
+<style>
+/* -- Training page layout -------------------------------- */
+.train-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.input-card    { grid-column: 1; grid-row: 1; align-self: start; }
+.zones-card    { grid-column: 2; grid-row: 1; }
+.workouts-card { grid-column: 1 / -1; grid-row: 2; }
+.pacecalc-card { grid-column: 1; grid-row: 3; }
+.profile-card  { grid-column: 2; grid-row: 3; }
+.planner-card  { grid-column: 1 / -1; grid-row: 4; }
+
+@media (max-width: 1100px) {
+  .train-grid { grid-template-columns: 1fr; }
+  .input-card, .zones-card, .workouts-card,
+  .pacecalc-card, .profile-card, .planner-card {
+    grid-column: 1; grid-row: auto;
+  }
+}
+
+/* Input form */
+.train-form .field { margin-bottom: 12px; }
+.train-form .field span { display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 4px; }
+.train-form input,
+.train-form select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font-size: 0.92rem;
+  font-family: inherit;
+  background: var(--bg-surface);
+  color: var(--text);
+}
+.train-form input:focus,
+.train-form select:focus { outline: none; border-color: var(--accent); }
+
+/* Zone table */
+.zone-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.zone-table th {
+  text-align: left;
+  padding: 6px 10px;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--line);
+}
+.zone-table td { padding: 9px 10px; border-bottom: 1px solid rgba(0,0,0,0.05); }
+.zone-table tr:last-child td { border-bottom: none; }
+.zone-dot {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.zone-name { font-weight: 600; }
+.zone-pace { font-family: "Courier New", monospace; font-size: 0.92rem; color: var(--text); }
+.zone-sub  { font-size: 0.74rem; color: var(--text-secondary); margin-top: 1px; }
+.zone-locked {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+}
+.zone-locked a { color: var(--accent); text-decoration: none; }
+
+/* Workout cards */
+.workout-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+  margin-top: 4px;
+}
+.workout-tile {
+  background: var(--bg-surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 14px 15px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  transition: border-color 150ms, box-shadow 150ms;
+}
+.workout-tile:hover {
+  border-color: rgba(232,93,32,0.35);
+  box-shadow: 0 4px 14px rgba(232,93,32,0.09);
+}
+.wk-name { font-weight: 700; font-size: 0.92rem; color: var(--text); }
+.wk-reps { font-family: "Courier New", monospace; font-size: 1.0rem; color: var(--accent); }
+.wk-pace { font-size: 0.8rem; color: var(--text-secondary); }
+.wk-rest { font-size: 0.78rem; color: var(--text-secondary); }
+.wk-why  { font-size: 0.74rem; color: var(--text-secondary); margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--line); font-style: italic; }
+.wk-zone-badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  align-self: flex-start;
+}
+
+/* Pace calculator */
+.pace-input-row {
+  display: flex;
+  gap: 8px;
+  margin: 10px 0 14px;
+  align-items: flex-end;
+}
+.pace-input-row input {
+  flex: 1;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font-size: 0.92rem;
+  font-family: inherit;
+  background: var(--bg-surface);
+  color: var(--text);
+}
+.pace-input-row input:focus { outline: none; border-color: var(--accent); }
+.pace-table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+.pace-table th {
+  padding: 6px 8px;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  text-align: right;
+  border-bottom: 1px solid var(--line);
+}
+.pace-table th:first-child { text-align: left; }
+.pace-table td {
+  padding: 7px 8px;
+  text-align: right;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+  font-family: "Courier New", monospace;
+  font-size: 0.85rem;
+}
+.pace-table td:first-child { text-align: left; font-family: inherit; font-size: 0.82rem; color: var(--text-secondary); }
+.pace-table tr:last-child td { border-bottom: none; }
+.pace-fast { background: rgba(45,138,78,0.10); }
+.pace-slow { background: rgba(232,93,32,0.08); }
+.print-btn {
+  margin-top: 12px;
+  padding: 8px 18px;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  font-family: inherit;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: border-color 150ms, color 150ms;
+}
+.print-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Speed profile */
+.spectrum-wrap { margin: 14px 0 10px; }
+.spectrum-label-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+.spectrum-track {
+  height: 10px;
+  border-radius: 5px;
+  background: linear-gradient(90deg, #56a8ff, #e85d20);
+  position: relative;
+}
+.spectrum-dot {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid var(--accent);
+  box-shadow: 0 0 6px rgba(232,93,32,0.4);
+}
+.rec-list { list-style: none; padding: 0; margin: 12px 0 0; }
+.rec-list li {
+  padding: 8px 0 8px 22px;
+  position: relative;
+  font-size: 0.85rem;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+  color: var(--text);
+}
+.rec-list li:last-child { border-bottom: none; }
+.rec-list li::before {
+  content: "\2192";
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* Planner */
+.planner-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 10px;
+}
+@media (max-width: 640px) {
+  .planner-grid { grid-template-columns: 1fr; }
+  .pace-input-row { flex-direction: column; align-items: stretch; }
+}
+.planner-input { display: flex; flex-direction: column; gap: 10px; }
+.planner-input label { display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; color: var(--text-secondary); }
+.planner-input input {
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font-size: 0.92rem;
+  font-family: inherit;
+  background: var(--bg-surface);
+  color: var(--text);
+}
+.planner-input input:focus { outline: none; border-color: var(--accent); }
+.planner-output { display: flex; flex-direction: column; gap: 8px; }
+.phase-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.phase-badge {
+  padding: 2px 9px;
+  border-radius: 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.phase-weeks { font-size: 0.8rem; color: var(--text-secondary); }
+.phase-current { border-color: var(--accent) !important; background: rgba(232,93,32,0.06) !important; }
+
+@media print {
+  header, .input-card, .profile-card, .planner-card, .workouts-card { display: none !important; }
+  .pacecalc-card { grid-column: 1 / -1; }
+  .print-btn { display: none; }
+}
+</style>
+</head>
+
+<body>
+<header class="header">
+  <a href="index.html" class="logo">Track Race Predictor</a>
+  <nav class="navbar">
+    <a href="index.html">Race Predictor</a>
+    <a href="training.html" class="active">Training</a>
+    <a href="dashboard.html">Dashboard</a>
+  </nav>
+</header>
+
+<div class="page-shell">
+
+<header class="hero">
+  <div class="hero-copy">
+    <p class="eyebrow">Training Tools</p>
+    <h1>800m Training Toolkit</h1>
+    <p class="hero-subtitle">
+      Enter your PRs below — every number on this page is computed from your data,
+      not a generic table. Training zones, personalized workouts, race pacing, and
+      your speed-vs-aerobic profile.
+    </p>
+  </div>
+  <div class="hero-stat-card">
+    <span class="stat-label">Your VDOT</span>
+    <strong id="heroVdot">—</strong>
+    <p id="heroVdotSub" style="font-size:0.78rem;color:var(--text-secondary);margin:4px 0 0">Enter a 1600m PR to compute.</p>
+  </div>
+</header>
+
+<main class="train-grid">
+
+  <!-- INPUT CARD -->
+  <section class="card input-card">
+    <div class="section-heading"><h2>Your PRs</h2></div>
+    <form class="train-form" id="trainForm">
+      <div class="field">
+        <span>400m PR <em style="color:var(--text-secondary)">(required)</em></span>
+        <input id="tr400" type="text" placeholder="e.g. 52.4">
+      </div>
+      <div class="field">
+        <span>1600m PR <em style="color:var(--text-secondary)">(required for zones &amp; VDOT)</em></span>
+        <input id="tr1600" type="text" placeholder="e.g. 4:28.0">
+      </div>
+      <div class="field">
+        <span>Athlete Profile</span>
+        <select id="trProfile">
+          <option value="speed">Speed / Sprinter (SRR &ge; 1.58)</option>
+          <option value="balanced" selected>800m Specialist (SRR 1.48&ndash;1.57)</option>
+          <option value="endurance">Miler / Endurance (SRR &le; 1.47)</option>
+        </select>
+      </div>
+      <div class="button-row">
+        <button type="submit" class="primary-btn">Generate Training</button>
+      </div>
+    </form>
+    <p id="savedNotice" style="font-size:0.78rem;color:var(--text-secondary);margin-top:10px"></p>
+  </section>
+
+  <!-- VDOT ZONES -->
+  <section class="card zones-card">
+    <div class="section-heading"><h2>VDOT Training Zones</h2></div>
+    <div id="zonesOutput">
+      <div class="zone-locked">
+        Enter your PRs and click Generate Training to see your personalised paces.
+      </div>
+    </div>
+  </section>
+
+  <!-- WORKOUT GENERATOR -->
+  <section class="card workouts-card">
+    <div class="section-heading"><h2>Personalised Workouts</h2></div>
+    <div id="workoutsOutput">
+      <p style="color:var(--text-secondary);font-size:0.88rem">Enter your PRs above to generate workouts tailored to your fitness level and athlete profile.</p>
+    </div>
+  </section>
+
+  <!-- RACE PACE CALCULATOR -->
+  <section class="card pacecalc-card">
+    <div class="section-heading"><h2>Race Pace Calculator</h2></div>
+    <p style="font-size:0.84rem;color:var(--text-secondary);margin-bottom:2px">Enter a goal 800m time to see target splits across all four strategies.</p>
+    <div class="pace-input-row">
+      <input id="paceGoalInput" type="text" placeholder="e.g. 1:55.0">
+      <button class="primary-btn" id="paceCalcBtn" type="button">Calculate</button>
+    </div>
+    <div id="paceOutput"></div>
+    <button class="print-btn" id="printBtn">Print / Save as PDF</button>
+  </section>
+
+  <!-- SPEED PROFILE ANALYSIS -->
+  <section class="card profile-card">
+    <div class="section-heading"><h2>Speed Profile Analysis</h2></div>
+    <div id="profileOutput">
+      <p style="color:var(--text-secondary);font-size:0.88rem">Enter your 400m and 1600m PRs above to see your speed-vs-aerobic diagnostic.</p>
+    </div>
+  </section>
+
+  <!-- GOAL PLANNER -->
+  <section class="card planner-card">
+    <div class="section-heading"><h2>Time-to-Goal Planner</h2></div>
+    <div class="planner-grid">
+      <div class="planner-input">
+        <label>Goal 800m Time <input id="planGoal" type="text" placeholder="e.g. 1:55.0"></label>
+        <label>Target Race Date <input id="planDate" type="date"></label>
+        <label>Current Predicted Time
+          <input id="planCurrent" type="text" placeholder="from predictor, e.g. 2:00.0">
+        </label>
+        <button class="primary-btn" id="planBtn" type="button" style="align-self:flex-start">Plan</button>
+      </div>
+      <div class="planner-output" id="planOutput">
+        <p style="color:var(--text-secondary);font-size:0.85rem">Set your goal time, race date, and current predicted time to see your training phase breakdown.</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+</div>
+
+<script src="script.js"></script>
+<script>
+"use strict";
+
+/* -- Helpers --------------------------------------------- */
+function fmtPer400(sec) {
+  if (!sec || sec <= 0) return "—";
+  const m = Math.floor(sec / 60);
+  const s = (sec % 60).toFixed(1).padStart(4, "0");
+  return m + ":" + s;
+}
+function fmtPerKm(sec) {
+  if (!sec || sec <= 0) return "—";
+  const perKm = sec * (1000 / 400);
+  const m = Math.floor(perKm / 60);
+  const s = (perKm % 60).toFixed(0).padStart(2, "0");
+  return m + ":" + s + "/km";
+}
+function fmtTime(sec) {
+  if (!sec || isNaN(sec)) return "—";
+  const m = Math.floor(sec / 60);
+  const s = (sec % 60).toFixed(2).padStart(5, "0");
+  return m + ":" + s;
+}
+
+/* -- VDOT Training Zones --------------------------------- */
+const ZONE_DISTS = {
+  R: 1609,
+  I: 3200,
+  T: 10000,
+  M: 21097,
+  E: 40000,
+};
+
+const ZONE_META = [
+  { key: "R", name: "Rep (Speed)",        color: "#e85d20", purpose: "Neuromuscular speed, short fast reps",              factor: 1/4.025   },
+  { key: "I", name: "Interval (VO₂max)", color: "#c9820a", purpose: "VO₂max development, 3–5 min reps",    factor: 1/8       },
+  { key: "T", name: "Threshold / Tempo",  color: "#3a6fcf", purpose: "Lactate threshold, 20–40 min continuous or reps", factor: 1/25   },
+  { key: "M", name: "Marathon",           color: "#6a3fcf", purpose: "Aerobic power base, longer tempo runs",             factor: 1/52.7425 },
+  { key: "E", name: "Easy",               color: "#2d8a4e", purpose: "Recovery and aerobic base building",                factor: 1/100     },
+];
+
+function computeZones(vdot) {
+  const zones = {};
+  for (const z of ZONE_META) {
+    const raceSec = predictFromVdot(ZONE_DISTS[z.key], vdot);
+    zones[z.key] = raceSec ? raceSec * z.factor : null;
+  }
+  return zones;
+}
+
+function renderZones(vdot, zones, t1600) {
+  const vdotDisplay = vdot ? vdot.toFixed(1) : "—";
+  const heroVdot    = document.getElementById("heroVdot");
+  const heroVdotSub = document.getElementById("heroVdotSub");
+  if (heroVdot) heroVdot.textContent = vdotDisplay;
+  if (heroVdotSub && t1600) {
+    heroVdotSub.textContent = "Based on 1600m PR of " + fmtTime(t1600);
+  }
+
+  const rows = ZONE_META.map(function(z) {
+    const pace = zones[z.key];
+    return "<tr>" +
+      "<td>" +
+        "<span class='zone-dot' style='background:" + z.color + "'></span>" +
+        "<span class='zone-name'>" + z.name + "</span>" +
+      "</td>" +
+      "<td>" +
+        "<div class='zone-pace'>" + (pace ? fmtPer400(pace) : "—") + " / 400m</div>" +
+        "<div class='zone-sub'>" + (pace ? fmtPerKm(pace) : "") + "</div>" +
+      "</td>" +
+      "<td style='font-size:0.74rem;color:var(--text-secondary)'>" + z.purpose + "</td>" +
+      "</tr>";
+  }).join("");
+
+  return "<table class='zone-table'>" +
+    "<thead><tr><th>Zone</th><th>Target Pace</th><th>Purpose</th></tr></thead>" +
+    "<tbody>" + rows + "</tbody>" +
+    "</table>" +
+    "<p style='font-size:0.72rem;color:var(--text-secondary);margin-top:8px'>" +
+    "Derived from Jack Daniels' VDOT oxygen-cost model at equivalent race distances. " +
+    "Paces are per 400m on a standard outdoor track." +
+    "</p>";
+}
+
+/* -- Workout Generator ----------------------------------- */
+const WORKOUT_DB = {
+  speed: [
+    { name: "Speed Reps",      sets: "10 \xD7 200m",    zoneKey: "R", rest: "2:30 walk/jog", why: "Build maximal sprint speed and neuromuscular power — the raw ingredient of 800m kick." },
+    { name: "Speed-Endurance", sets: "6 \xD7 400m",     zoneKey: "R", rest: "3:00 walk",     why: "Bridge the gap between pure speed and 800m race pace. Highly specific for sprinter types." },
+    { name: "Lactate Repeats", sets: "3 \xD7 3 \xD7 300m", zoneKey: "I", rest: "45s / 3:30", why: "Accumulates lactate then flushes it — trains your body to handle pace changes mid-race." },
+    { name: "VO₂max Intervals", sets: "8 \xD7 400m", zoneKey: "I", rest: "60s",         why: "Develops aerobic ceiling — the limiting factor for speed-dominant 800m runners." },
+    { name: "Threshold Run",   sets: "20 min",          zoneKey: "T", rest: "continuous",    why: "Aerobic base work to support race demands beyond the 400m sprint duration." },
+    { name: "Race Pace 600s",  sets: "5 \xD7 600m",     zoneKey: "I", rest: "2:30",          why: "Race-specific conditioning at 800m goal pace, longer than race reps." },
+  ],
+  balanced: [
+    { name: "VO₂max 400s",    sets: "8 \xD7 400m",  zoneKey: "I", rest: "60s",           why: "Classic 800m interval session — develops the aerobic power central to specialist performance." },
+    { name: "Race-Pace 600s",  sets: "5 \xD7 600m",     zoneKey: "I", rest: "2:00",           why: "Extends race-specific conditioning beyond the 400m, building lactate tolerance needed mid-race." },
+    { name: "Threshold 800s",  sets: "4 \xD7 800m",     zoneKey: "T", rest: "60s",            why: "Tempo-effort 800s raise lactate threshold — the ceiling of sustainable pace." },
+    { name: "Speed Sharpener", sets: "8 \xD7 200m",     zoneKey: "R", rest: "2:00 walk",      why: "Maintains top-end speed for a strong kick at the bell." },
+    { name: "Threshold Run",   sets: "25 min",          zoneKey: "T", rest: "continuous",     why: "Aerobic volume at threshold keeps your base strong through the competitive season." },
+    { name: "Race-Sim 1000s",  sets: "4 \xD7 1000m",    zoneKey: "I", rest: "3:00",           why: "Simulates the second half of the 800m; builds mental and physical toughness." },
+  ],
+  endurance: [
+    { name: "Threshold Cruise",  sets: "4 \xD7 1200m", zoneKey: "T", rest: "60s",            why: "High-volume threshold work builds the aerobic engine — essential for miler-type 800m runners." },
+    { name: "VO₂max 1000s",   sets: "4 \xD7 1000m", zoneKey: "I", rest: "3:00",         why: "Drives VO₂max higher, which lifts the ceiling on your 800m potential." },
+    { name: "Speed Development", sets: "10 \xD7 300m", zoneKey: "R", rest: "2:30 walk",      why: "Counteracts the natural speed deficit of endurance athletes at shorter 800m intensities." },
+    { name: "Race-Pace 600s",    sets: "5 \xD7 600m",  zoneKey: "I", rest: "2:30",           why: "Develops the ability to sustain 800m goal pace for extended periods." },
+    { name: "Easy Long Run",     sets: "35–45 min", zoneKey: "E", rest: "continuous",   why: "Aerobic base volume — gives endurance athletes an edge in the second lap of the 800m." },
+    { name: "Tempo 2-miler",     sets: "1 \xD7 3200m", zoneKey: "T", rest: "continuous",     why: "Continuous threshold effort builds mental toughness and steady-state aerobic power." },
+  ],
+};
+
+function renderWorkouts(profile, zones) {
+  const workouts = WORKOUT_DB[profile] || WORKOUT_DB.balanced;
+  const tiles = workouts.map(function(w) {
+    const zmeta = ZONE_META.find(function(z) { return z.key === w.zoneKey; });
+    const pace  = zones && zones[w.zoneKey] ? fmtPer400(zones[w.zoneKey]) + " / 400m" : "—";
+    return "<div class='workout-tile'>" +
+      "<span class='wk-zone-badge' style='background:" + zmeta.color + "22;color:" + zmeta.color + ";border:1px solid " + zmeta.color + "44'>" + zmeta.name + "</span>" +
+      "<div class='wk-name'>" + w.name + "</div>" +
+      "<div class='wk-reps'>" + w.sets + "</div>" +
+      "<div class='wk-pace'>Target: " + pace + "</div>" +
+      "<div class='wk-rest'>Recovery: " + w.rest + "</div>" +
+      "<div class='wk-why'>" + w.why + "</div>" +
+      "</div>";
+  }).join("");
+
+  const profileLabels = { speed: "Speed / Sprinter", balanced: "800m Specialist", endurance: "Miler / Endurance" };
+  return "<p style='font-size:0.84rem;color:var(--text-secondary);margin-bottom:10px'>" +
+    "Profile: <strong>" + profileLabels[profile] + "</strong> — showing sessions most relevant to your physiology." +
+    "</p>" +
+    "<div class='workout-grid'>" + tiles + "</div>" +
+    "<p style='font-size:0.74rem;color:var(--text-secondary);margin-top:12px'>" +
+    "Paces from your VDOT zones. Aim to complete 1–2 of these sessions per week during your build phase. " +
+    "Always book-end quality sessions with easy-day recovery." +
+    "</p>";
+}
+
+/* -- Race Pace Calculator -------------------------------- */
+function renderPaceTable(goalSec) {
+  if (!goalSec) return "";
+
+  const strategies = ["even", "negative", "frontLoaded", "sitAndKick"];
+  const labels     = { even: "Even", negative: "Negative", frontLoaded: "Front Loaded", sitAndKick: "Sit & Kick" };
+
+  const allSplits = {};
+  const avgSplit  = goalSec / 8;
+  strategies.forEach(function(s) {
+    const mults = getStrategyMultipliers(s, "balanced");
+    const total = mults.reduce(function(a, b) { return a + b; }, 0);
+    allSplits[s] = mults.map(function(m) { return m * (goalSec / total); });
+  });
+
+  let html = "<div style='overflow-x:auto'><table class='pace-table'><thead><tr><th>100m</th>" +
+    strategies.map(function(s) { return "<th>" + labels[s] + "</th>"; }).join("") +
+    "</tr></thead><tbody>";
+
+  for (let i = 0; i < 8; i++) {
+    const dist = (i + 1) * 100;
+    const lap  = i < 4 ? "Lap 1" : "Lap 2";
+    const cells = strategies.map(function(s) {
+      const sec = allSplits[s][i];
+      const cls = sec < avgSplit - 0.3 ? "pace-fast" : sec > avgSplit + 0.3 ? "pace-slow" : "";
+      return "<td class='" + cls + "'>" + sec.toFixed(2) + "s</td>";
+    }).join("");
+    const lapBorder = i === 3 ? " style='border-top:2px solid rgba(0,0,0,0.12)'" : "";
+    html += "<tr" + lapBorder + "><td>" + dist + "m <span style='opacity:0.5;font-size:0.7rem'>(" + lap + ")</span></td>" + cells + "</tr>";
+  }
+
+  const lap1 = strategies.map(function(s) { return { s: s, t: allSplits[s].slice(0,4).reduce(function(a,b){return a+b;},0) }; });
+  const lap2 = strategies.map(function(s) { return { s: s, t: allSplits[s].slice(4,8).reduce(function(a,b){return a+b;},0) }; });
+  html += "<tr style='border-top:2px solid var(--line);font-weight:700'><td>Lap 1</td>" +
+    lap1.map(function(r) { return "<td>" + fmtTime(r.t) + "</td>"; }).join("") + "</tr>";
+  html += "<tr style='font-weight:700'><td>Lap 2</td>" +
+    lap2.map(function(r) { return "<td>" + fmtTime(r.t) + "</td>"; }).join("") + "</tr>";
+  html += "<tr style='font-weight:700;font-size:0.9rem'><td>Finish</td>" +
+    strategies.map(function() { return "<td>" + fmtTime(goalSec) + "</td>"; }).join("") + "</tr>";
+
+  html += "</tbody></table></div>" +
+    "<p style='font-size:0.72rem;color:var(--text-secondary);margin-top:6px'>" +
+    "<span style='background:rgba(45,138,78,0.1);padding:1px 5px;border-radius:3px'>Green</span> = faster than average 100m split. " +
+    "<span style='background:rgba(232,93,32,0.08);padding:1px 5px;border-radius:3px;margin-left:4px'>Orange</span> = slower." +
+    "</p>";
+  return html;
+}
+
+/* -- Speed Profile Analysis ------------------------------ */
+function renderSpeedProfile(t400, t1600, profile) {
+  const srr    = (400 / t400) / (1600 / t1600);
+  const riegel = modelRiegel(t400, profile, "male");
+  const vdotP  = modelVdot(t1600);
+
+  const srrPct = Math.max(0, Math.min(100, (srr - 1.30) / 0.40 * 100));
+  const gap    = vdotP ? (riegel - vdotP) : null;
+  const gapAbs = gap !== null ? Math.abs(gap).toFixed(2) : null;
+
+  let verdict, recs;
+  if (!vdotP) {
+    verdict = "Enter your 1600m PR for a full speed-aerobic analysis.";
+    recs    = [];
+  } else if (gap > 3.0) {
+    verdict = "Your speed model (Riegel) predicts " + gapAbs + "s faster than your aerobic model (VDOT). You have excellent raw speed but your aerobic ceiling is limiting your 800m.";
+    recs = [
+      "Run 1–2 threshold/tempo sessions per week (T-pace) to raise your aerobic ceiling.",
+      "Add a weekly easy long run of 30–40 min to build aerobic base.",
+      "Reduce pure sprint work temporarily — it's already your strength.",
+    ];
+  } else if (gap < -3.0) {
+    verdict = "Your aerobic model (VDOT) predicts " + gapAbs + "s faster than your speed model (Riegel). You have a strong aerobic base but lack the top-end speed needed for a strong 800m kick.";
+    recs = [
+      "Add 1–2 Rep-pace sessions per week (200m–400m at R-pace) to develop neuromuscular speed.",
+      "Include short hill sprints (8–10 \xD7 10s) once a week to improve stride power.",
+      "Work on the last 200m: practice kicking from rep pace in training.",
+    ];
+  } else {
+    verdict = "Your speed and aerobic models are closely matched (" + (gapAbs || "—") + "s difference). You're a well-balanced 800m athlete — focus on race-specific conditioning rather than patching a single weakness.";
+    recs = [
+      "Emphasise race-specific 600m–800m reps at Interval pace to sharpen event fitness.",
+      "One session per week at Rep pace (200m–400m) to maintain your kick.",
+      "A weekly threshold run keeps your aerobic base solid without overloading.",
+    ];
+  }
+
+  const recItems = recs.map(function(r) { return "<li>" + r + "</li>"; }).join("");
+  return "<div class='spectrum-wrap'>" +
+    "<div class='spectrum-label-row'>" +
+      "<span>Speed-dominant</span>" +
+      "<span>SRR: " + srr.toFixed(3) + "</span>" +
+      "<span>Aerobic-dominant</span>" +
+    "</div>" +
+    "<div class='spectrum-track'>" +
+      "<div class='spectrum-dot' style='left:" + (100 - srrPct).toFixed(1) + "%'></div>" +
+    "</div>" +
+    "</div>" +
+    "<p style='font-size:0.84rem;color:var(--text);margin-top:10px'>" + verdict + "</p>" +
+    (recs.length ? "<ul class='rec-list'>" + recItems + "</ul>" : "") +
+    "<p style='font-size:0.72rem;color:var(--text-secondary);margin-top:10px'>" +
+    "Based on comparison of Riegel (speed-derived) vs. VDOT (aerobic-derived) 800m predictions. " +
+    "Spectrum position reflects your Speed Reserve Ratio (SRR = MSS \xF7 MAS)." +
+    "</p>";
+}
+
+/* -- Time-to-Goal Planner -------------------------------- */
+function renderPlanner(goalSec, raceDateStr, currentSec) {
+  if (!goalSec || !raceDateStr || !currentSec) {
+    return "<p style='color:var(--text-secondary);font-size:0.85rem'>Fill in all three fields above to see your training phase plan.</p>";
+  }
+
+  const raceDate  = new Date(raceDateStr + "T12:00:00");
+  const today     = new Date();
+  const msPerWeek = 7 * 24 * 3600 * 1000;
+  const weeksOut  = Math.max(0, Math.round((raceDate - today) / msPerWeek));
+  const gapSec    = currentSec - goalSec;
+
+  if (weeksOut === 0) {
+    return "<p style='color:var(--accent);font-weight:600'>Race week — focus on staying sharp, sleep, and confidence. Taper is in effect.</p>";
+  }
+
+  let phases;
+  if (weeksOut <= 4) {
+    phases = [
+      { name: "Peak / Race Prep", weeks: Math.max(1, weeksOut - 1), color: "#e85d20", current: true },
+      { name: "Taper",            weeks: 1,                          color: "#c9820a", current: false },
+    ];
+  } else if (weeksOut <= 8) {
+    const build = Math.round(weeksOut * 0.6);
+    const peak  = Math.round(weeksOut * 0.3);
+    const taper = weeksOut - build - peak;
+    phases = [
+      { name: "Build",  weeks: build,  color: "#3a6fcf", current: true },
+      { name: "Peak",   weeks: peak,   color: "#e85d20", current: false },
+      { name: "Taper",  weeks: taper,  color: "#c9820a", current: false },
+    ];
+  } else if (weeksOut <= 16) {
+    const base  = Math.round(weeksOut * 0.35);
+    const build = Math.round(weeksOut * 0.40);
+    const peak  = Math.round(weeksOut * 0.18);
+    const taper = weeksOut - base - build - peak;
+    phases = [
+      { name: "Base",   weeks: base,   color: "#2d8a4e", current: true  },
+      { name: "Build",  weeks: build,  color: "#3a6fcf", current: false },
+      { name: "Peak",   weeks: peak,   color: "#e85d20", current: false },
+      { name: "Taper",  weeks: taper,  color: "#c9820a", current: false },
+    ];
+  } else {
+    const base  = Math.round(weeksOut * 0.40);
+    const build = Math.round(weeksOut * 0.35);
+    const peak  = Math.round(weeksOut * 0.18);
+    const taper = weeksOut - base - build - peak;
+    phases = [
+      { name: "Foundation", weeks: base,   color: "#2d8a4e", current: true  },
+      { name: "Build",      weeks: build,  color: "#3a6fcf", current: false },
+      { name: "Peak",       weeks: peak,   color: "#e85d20", current: false },
+      { name: "Taper",      weeks: taper,  color: "#c9820a", current: false },
+    ];
+  }
+
+  const phaseRows = phases.map(function(p) {
+    return "<div class='phase-row" + (p.current ? " phase-current" : "") + "'>" +
+      "<span class='phase-badge' style='background:" + p.color + "22;color:" + p.color + ";border:1px solid " + p.color + "44'>" + p.name + "</span>" +
+      "<span class='phase-weeks'>" + p.weeks + " week" + (p.weeks !== 1 ? "s" : "") + "</span>" +
+      (p.current ? "<span style='font-size:0.72rem;color:var(--accent);margin-left:auto'>← You are here</span>" : "") +
+      "</div>";
+  }).join("");
+
+  const gapStr = gapSec > 0
+    ? gapSec.toFixed(2) + "s to close (" + (gapSec / weeksOut).toFixed(2) + "s/week needed)"
+    : "You're already at your goal — great work!";
+
+  return "<div style='margin-bottom:10px'>" +
+    "<p style='font-size:0.84rem;margin:0 0 4px'><strong>" + weeksOut + " weeks</strong> to race day " +
+    "(" + raceDate.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) + ").</p>" +
+    "<p style='font-size:0.84rem;color:var(--text-secondary);margin:0'>Gap: " + gapStr + "</p>" +
+    "</div>" +
+    phaseRows +
+    "<p style='font-size:0.72rem;color:var(--text-secondary);margin-top:10px'>" +
+    "Phase breakdown is a general guideline. Adjust based on your current training load, injury history, and coach guidance." +
+    "</p>";
+}
+
+/* -- Pre-fill from localStorage -------------------------- */
+function prefillFromStorage() {
+  try {
+    const p = JSON.parse(localStorage.getItem("athleteProfile"));
+    if (!p) return;
+    if (p.t400  && document.getElementById("tr400"))
+      document.getElementById("tr400").value  = formatTime(p.t400);
+    if (p.t1600 && document.getElementById("tr1600"))
+      document.getElementById("tr1600").value = formatTime(p.t1600);
+    if (p.profile && document.getElementById("trProfile"))
+      document.getElementById("trProfile").value = p.profile;
+
+    const notice = document.getElementById("savedNotice");
+    if (notice) notice.textContent = "PRs loaded from your saved profile — update below if needed.";
+
+    const g = JSON.parse(localStorage.getItem("athleteGoal"));
+    if (g && g.goalTime && document.getElementById("planGoal"))
+      document.getElementById("planGoal").value = formatTime(g.goalTime);
+
+    const hist = JSON.parse(localStorage.getItem("predictionHistory") || "[]");
+    if (hist.length && document.getElementById("planCurrent"))
+      document.getElementById("planCurrent").value = formatTime(hist[hist.length - 1].predicted);
+  } catch (_) {}
+}
+
+/* -- Main generate --------------------------------------- */
+function generateTraining(t400, t1600, profile) {
+  const vdot  = t1600 ? computeVdot(1600, t1600) : null;
+  const zones = vdot  ? computeZones(vdot) : null;
+
+  const zonesEl = document.getElementById("zonesOutput");
+  if (zonesEl) {
+    zonesEl.innerHTML = vdot
+      ? renderZones(vdot, zones, t1600)
+      : "<div class='zone-locked'>A 1600m PR is needed to compute training zones.<br><a href='index.html'>Run the predictor</a> to generate your VDOT.</div>";
+  }
+
+  const workoutsEl = document.getElementById("workoutsOutput");
+  if (workoutsEl) {
+    workoutsEl.innerHTML = renderWorkouts(profile, zones);
+  }
+
+  const profileEl = document.getElementById("profileOutput");
+  if (profileEl) {
+    profileEl.innerHTML = (t400 && t1600)
+      ? renderSpeedProfile(t400, t1600, profile)
+      : "<p style='color:var(--text-secondary);font-size:0.88rem'>Enter both your 400m and 1600m PRs to see your speed-aerobic profile.</p>";
+  }
+}
+
+/* -- Event binding --------------------------------------- */
+document.addEventListener("DOMContentLoaded", function() {
+  prefillFromStorage();
+
+  try {
+    const p = JSON.parse(localStorage.getItem("athleteProfile"));
+    if (p && p.t400) {
+      generateTraining(p.t400, p.t1600 || null, p.profile || "balanced");
+    }
+  } catch (_) {}
+
+  const trainForm = document.getElementById("trainForm");
+  if (trainForm) {
+    trainForm.addEventListener("submit", function(e) {
+      e.preventDefault();
+      const t400  = parseTime(document.getElementById("tr400").value);
+      const t1600 = parseTime(document.getElementById("tr1600").value);
+      const prof  = document.getElementById("trProfile").value;
+      if (!t400 || t400 < 40 || t400 > 180) {
+        alert("Enter a valid 400m PR (40s–3:00).");
+        return;
+      }
+      generateTraining(t400, t1600, prof);
+    });
+  }
+
+  const paceCalcBtn = document.getElementById("paceCalcBtn");
+  const paceOutput  = document.getElementById("paceOutput");
+  if (paceCalcBtn && paceOutput) {
+    paceCalcBtn.addEventListener("click", function() {
+      const goalSec = parseTime(document.getElementById("paceGoalInput").value);
+      if (!goalSec || goalSec < 60 || goalSec > 400) {
+        alert("Enter a valid 800m goal time (1:00–6:40).");
+        return;
+      }
+      paceOutput.innerHTML = renderPaceTable(goalSec);
+    });
+  }
+
+  const printBtn = document.getElementById("printBtn");
+  if (printBtn) printBtn.addEventListener("click", function() { window.print(); });
+
+  const planBtn    = document.getElementById("planBtn");
+  const planOutput = document.getElementById("planOutput");
+  if (planBtn && planOutput) {
+    planBtn.addEventListener("click", function() {
+      const goalSec = parseTime(document.getElementById("planGoal").value);
+      const dateStr = document.getElementById("planDate").value;
+      const curSec  = parseTime(document.getElementById("planCurrent").value);
+      planOutput.innerHTML = renderPlanner(goalSec, dateStr, curSec);
+    });
+  }
+});
+</script>
+</body>
+</html>
