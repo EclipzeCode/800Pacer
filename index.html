@@ -10,6 +10,15 @@
 </head>
 
 <body>
+    <header class="header">
+      <a href="index.html" class="logo">Track Race Predictor</a>
+
+      <nav class="navbar">
+        <a href="index.html" class="active">Race Predictor</a>
+        <a href="training.html">Training</a>
+        <a href="dashboard.html">Dashboard</a>
+      </nav>
+    </header>
 
 <div class="page-shell">
 
@@ -125,13 +134,19 @@
           </linearGradient>
         </defs>
 
-        <!-- Light background -->
+        <!-- Dark backdrop -->
         <rect x="0" y="0" width="760" height="320" class="track-backdrop"/>
 
-        <!-- Subtle glow halo behind the track lane -->
+        <!-- Infield (grass interior) -->
+        <path
+          d="M 160 61 A 79 99 0 0 0 160 259 L 600 259 A 79 99 0 0 0 600 61 L 160 61 Z"
+          fill="#2d5a3d"
+        />
+
+        <!-- Glow halo behind the lane -->
         <path
           d="M 160 40 A 100 120 0 0 0 160 280 L 600 280 A 100 120 0 0 0 600 40 L 160 40 Z"
-          fill="none" stroke="rgba(232,107,48,0.12)" stroke-width="70"
+          fill="none" stroke="rgba(232,107,48,0.18)" stroke-width="70"
         />
 
         <!-- Main track path (counter-clockwise) -->
@@ -145,15 +160,33 @@
           class="track-lane"
         />
 
-        <!-- Start/finish line -->
-        <line x1="160" y1="16" x2="160" y2="64"
-              stroke="rgba(100,60,20,0.5)" stroke-width="2.5" stroke-dasharray="5 3"/>
-        <text x="168" y="30" font-size="9" fill="rgba(100,60,20,0.55)"
+        <!-- Outer edge line -->
+        <path
+          d="M 160 19 A 121 141 0 0 0 160 301 L 600 301 A 121 141 0 0 0 600 19 L 160 19 Z"
+          fill="none" stroke="rgba(255,255,255,0.20)" stroke-width="1.5"
+        />
+
+        <!-- Inner edge line -->
+        <path
+          d="M 160 61 A 79 99 0 0 0 160 259 L 600 259 A 79 99 0 0 0 600 61 L 160 61 Z"
+          fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="1.5"
+        />
+
+        <!-- Start/finish line — solid white + gold dash -->
+        <line x1="160" y1="19" x2="160" y2="61"
+              stroke="#ffffff" stroke-width="3" opacity="0.85"/>
+        <line x1="160" y1="19" x2="160" y2="61"
+              stroke="#ffd700" stroke-width="1.2" stroke-dasharray="4 4" opacity="0.9"/>
+        <text x="168" y="33" font-size="8.5" fill="rgba(255,220,160,0.80)"
               font-family="Bahnschrift,sans-serif" letter-spacing="1">START / FINISH</text>
+
+        <!-- Direction arrow on back straight -->
+        <text x="380" y="298" text-anchor="middle" font-size="13"
+              fill="rgba(255,255,255,0.35)" font-family="sans-serif">›</text>
 
         <!-- Inner label -->
         <text x="380" y="164" text-anchor="middle" font-size="10"
-              fill="rgba(160,100,60,0.3)" font-family="Bahnschrift,sans-serif" letter-spacing="3">800m · 2 LAPS</text>
+              fill="rgba(160,220,160,0.35)" font-family="Bahnschrift,sans-serif" letter-spacing="3">800m · 2 LAPS</text>
 
         <g id="splitMarkers"></g>
 
@@ -215,10 +248,15 @@
         <strong id="blendVal">—</strong>
         <span class="tile-hint">Click to learn more ↗</span>
       </div>
-      <div class="model-tile accent" data-model="ensemble">
+      <div class="model-tile" data-model="vdot">
+        <span class="tile-label">VDOT (Jack Daniels)</span>
+        <strong id="vdotVal">—</strong>
+        <span class="tile-hint">Click to learn more ↗</span>
+      </div>
+      <div class="model-tile accent full" data-model="ensemble">
         <span class="tile-label">Ensemble (Weighted Avg)</span>
         <strong id="ensembleVal">—</strong>
-        <p id="ensembleCI" class="ensemble-ci">95% CI: —</p>
+        <p id="ensembleCI" class="ensemble-ci">±—</p>
         <span class="tile-hint">Click to learn more ↗</span>
       </div>
     </div>
@@ -268,7 +306,7 @@
 
       <div class="disc-block">
         <h4>Predictive Models &amp; Sources</h4>
-        <p>This simulator implements established sports science models adapted for educational and informational use. The <strong>Riegel Power-Law</strong> formula is based on Pete Riegel's 1977 empirical research published in <em>American Scientist</em>. The <strong>Critical Speed</strong> model derives from foundational work by Hill (1925) and subsequent developments by Monod &amp; Scherrer (1965) and Morton (1996). The <strong>MSS/MAS Blend</strong> formula references methodology described in Loporto &amp; Mannion (2021), <em>Aerobic and Anaerobic Speed Predicts 800-m Running Performance in Young Recreational Runners</em> (PMC8176219). The <strong>Speed Reserve Ratio (SRR)</strong> framework is based on Sandford et al. (2019), <em>Anaerobic Speed Reserve: A Key Component of Elite Male 800-m Running</em> (PubMed 30300023). Ensemble weighting methodology is adapted from general principles of model averaging in predictive analytics and is not derived from any single proprietary source.</p>
+        <p>This simulator implements established sports science models adapted for educational and informational use. The <strong>Riegel Power-Law</strong> formula is based on Pete Riegel's 1977 empirical research published in <em>American Scientist</em>. The <strong>Critical Speed</strong> model derives from foundational work by Hill (1925) and subsequent developments by Monod &amp; Scherrer (1965) and Morton (1996). The <strong>MSS/MAS Blend</strong> formula references methodology described in Loporto &amp; Mannion (2021), <em>Aerobic and Anaerobic Speed Predicts 800-m Running Performance in Young Recreational Runners</em> (PMC8176219). The <strong>VDOT model</strong> is based on Jack Daniels' oxygen-cost equivalent-performance framework as described in <em>Daniels' Running Formula</em> (1998, 2005), using the VO₂max/running-economy formula originally developed by Daniels &amp; Gilbert. Ensemble weighting methodology is adapted from general principles of model averaging in predictive analytics and is not derived from any single proprietary source.</p>
       </div>
 
       <div class="disc-block">
@@ -290,7 +328,7 @@
 
     <div class="disc-bottom">
       <p>© 2026 800m Time Calculator &nbsp;·&nbsp; Built for educational and performance analysis purposes &nbsp;·&nbsp; All predictions are estimates only &nbsp;·&nbsp; Use at your own discretion.</p>
-      <p class="disc-refs">References: Riegel (1977) &nbsp;·&nbsp; Monod &amp; Scherrer (1965) &nbsp;·&nbsp; Morton (1996) &nbsp;·&nbsp; Loporto &amp; Mannion, PMC8176219 (2021) &nbsp;·&nbsp; Sandford et al., PubMed 30300023 (2019)</p>
+      <p class="disc-refs">References: Riegel (1977) &nbsp;·&nbsp; Monod &amp; Scherrer (1965) &nbsp;·&nbsp; Morton (1996) &nbsp;·&nbsp; Loporto &amp; Mannion, PMC8176219 (2021) &nbsp;·&nbsp; Daniels &amp; Gilbert (1979) &nbsp;·&nbsp; Daniels, <em>Running Formula</em> (1998)</p>
     </div>
   </div>
 </footer>
