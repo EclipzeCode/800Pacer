@@ -360,12 +360,15 @@ function prefillFromStorage() {
     if (notice) notice.textContent = "PRs loaded from your saved profile — update below if needed.";
 
     const g = JSON.parse(localStorage.getItem("athleteGoal"));
-    if (g && g.goalTime && document.getElementById("planGoal"))
-      document.getElementById("planGoal").value = formatTime(g.goalTime);
+    if (g && g.goalTime) {
+      const gv = formatInput(g.goalTime);
+      if (document.getElementById("planGoal"))      document.getElementById("planGoal").value      = gv;
+      if (document.getElementById("paceGoalInput")) document.getElementById("paceGoalInput").value = gv;
+    }
 
     const hist = JSON.parse(localStorage.getItem("predictionHistory") || "[]");
     if (hist.length && document.getElementById("planCurrent"))
-      document.getElementById("planCurrent").value = formatTime(hist[hist.length - 1].predicted);
+      document.getElementById("planCurrent").value = formatInput(hist[hist.length - 1].predicted);
   } catch (_) {}
 }
 
@@ -414,16 +417,14 @@ document.addEventListener("DOMContentLoaded", function() {
       const r1600 = validateTimeInput(document.getElementById("tr1600").value, "t1600");
       const prof  = document.getElementById("trProfile").value;
       const sex   = document.getElementById("trSex").value;
-      const err   = r400.error || (!r400.sec ? "A 400m PR is required." : null) || r1600.error;
-      if (err) {
-        if (notice) { notice.textContent = err; notice.style.color = "var(--danger)"; }
-        return;
-      }
-      if (notice) {
-        notice.style.color = "";
-        notice.textContent = r1600.warn ? "1600m " + r1600.warn : "";
-      }
+      const in400  = document.getElementById("tr400");
+      const in1600 = document.getElementById("tr1600");
+      setFieldError(in1600, r1600.error || (r1600.warn ? r1600.warn : null), { kind: r1600.error ? "error" : "warn" });
+      setFieldError(in400,  r400.error  || (!r400.sec ? "A 400m PR is required." : null));
+      if (r400.error || !r400.sec || r1600.error) return;
+      if (notice) notice.textContent = "";
       generateTraining(r400.sec, r1600.sec, prof, sex);
+      showToast(r1600.sec ? "Training zones and workouts updated." : "Workouts updated — add a 1600m PR for VDOT zones.", { type: "success", duration: 3000 });
     });
   }
 
@@ -431,12 +432,14 @@ document.addEventListener("DOMContentLoaded", function() {
   const paceOutput  = document.getElementById("paceOutput");
   if (paceCalcBtn && paceOutput) {
     paceCalcBtn.addEventListener("click", function() {
-      const goalSec = parseTime(document.getElementById("paceGoalInput").value);
-      if (!goalSec || goalSec < 60 || goalSec > 400) {
-        alert("Enter a valid 800m goal time (1:00–6:40).");
-        return;
-      }
-      paceOutput.innerHTML = renderPaceTable(goalSec, document.getElementById("trProfile").value);
+      const goalIn = document.getElementById("paceGoalInput");
+      const r      = validateTimeInput(goalIn.value, "t800");
+      if (!r.sec) { setFieldError(goalIn, r.error || "Enter a goal 800m time, e.g. 1:55.0"); return; }
+      setFieldError(goalIn, r.warn, { kind: "warn" });
+      paceOutput.innerHTML = renderPaceTable(r.sec, document.getElementById("trProfile").value);
+      // Keep the planner's goal in sync so it isn't typed twice.
+      const planGoal = document.getElementById("planGoal");
+      if (planGoal && !planGoal.value) planGoal.value = goalIn.value;
     });
   }
 
@@ -447,10 +450,19 @@ document.addEventListener("DOMContentLoaded", function() {
   const planOutput = document.getElementById("planOutput");
   if (planBtn && planOutput) {
     planBtn.addEventListener("click", function() {
-      const goalSec = parseTime(document.getElementById("planGoal").value);
-      const dateStr = document.getElementById("planDate").value;
-      const curSec  = parseTime(document.getElementById("planCurrent").value);
-      planOutput.innerHTML = renderPlanner(goalSec, dateStr, curSec);
+      const goalIn = document.getElementById("planGoal");
+      const dateIn = document.getElementById("planDate");
+      const curIn  = document.getElementById("planCurrent");
+      const rGoal  = validateTimeInput(goalIn.value, "t800");
+      const rCur   = validateTimeInput(curIn.value,  "t800");
+      let bad = false;
+      if (!rCur.sec)  { setFieldError(curIn,  rCur.error  || "Enter your current predicted 800m (from the predictor)."); bad = true; }
+      if (!dateIn.value) { setFieldError(dateIn, "Pick your target race date."); bad = true; }
+      if (!rGoal.sec) { setFieldError(goalIn, rGoal.error || "Enter a goal 800m time, e.g. 1:55.0"); bad = true; }
+      if (bad) return;
+      planOutput.innerHTML = renderPlanner(rGoal.sec, dateIn.value, rCur.sec);
+      const paceGoal = document.getElementById("paceGoalInput");
+      if (paceGoal && !paceGoal.value) paceGoal.value = goalIn.value;
     });
   }
 });

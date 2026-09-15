@@ -24,20 +24,7 @@
 /* Input form */
 .train-form .field { margin-bottom: 12px; }
 .train-form .field span { display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 4px; }
-.train-form input,
-.train-form select {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 9px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  font-size: 0.92rem;
-  font-family: inherit;
-  background: var(--bg-surface);
-  color: var(--text);
-}
-.train-form input:focus,
-.train-form select:focus { outline: none; border-color: var(--accent); }
+/* inputs/selects use the shared control styles from styles.css */
 
 /* Zone table */
 .zone-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
@@ -110,19 +97,9 @@
   display: flex;
   gap: 8px;
   margin: 10px 0 14px;
-  align-items: flex-end;
+  align-items: flex-start;
 }
-.pace-input-row input {
-  flex: 1;
-  padding: 9px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  font-size: 0.92rem;
-  font-family: inherit;
-  background: var(--bg-surface);
-  color: var(--text);
-}
-.pace-input-row input:focus { outline: none; border-color: var(--accent); }
+.pace-input-row .primary-btn { flex: 0 0 auto; }
 .pace-table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
 .pace-table th {
   padding: 6px 8px;
@@ -213,16 +190,7 @@
 }
 .planner-input { display: flex; flex-direction: column; gap: 10px; }
 .planner-input label { display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; color: var(--text-secondary); }
-.planner-input input {
-  padding: 9px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  font-size: 0.92rem;
-  font-family: inherit;
-  background: var(--bg-surface);
-  color: var(--text);
-}
-.planner-input input:focus { outline: none; border-color: var(--accent); }
+.planner-input label { gap: 6px; }
 .planner-output { display: flex; flex-direction: column; gap: 8px; }
 .phase-row {
   display: flex;

@@ -163,7 +163,7 @@ h1 {
   color: var(--text);
 }
 
-h2 { margin: 0; font-size: 1.05rem; letter-spacing: 0.01em; color: var(--text); }
+h2 { margin: 0; font-size: 1.2rem; letter-spacing: 0.01em; color: var(--text); }
 
 .eyebrow,
 .tile-label,
@@ -242,10 +242,22 @@ h2 { margin: 0; font-size: 1.05rem; letter-spacing: 0.01em; color: var(--text); 
 }
 
 .hero-stat-card strong {
-  font-size: 2.2rem;
-  margin: 8px 0 10px;
+  font-size: 2.6rem;
+  line-height: 1;
+  margin: 8px 0 6px;
   color: var(--accent);
   letter-spacing: -0.02em;
+}
+.hero-range { font-size: 0.82rem; color: var(--text-secondary); font-family: "Courier New", monospace; margin-bottom: 8px; }
+.hero-facts { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 6px 0 10px; font-size: 0.8rem; color: var(--text-secondary); }
+.hero-facts b { color: var(--text); font-weight: 600; }
+.hero-next { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--accent-border); font-size: 0.8rem; }
+.hero-next a { color: var(--accent); text-decoration: none; font-weight: 600; }
+.hero-next a:hover { text-decoration: underline; }
+.badge {
+  display: inline-block; padding: 2px 9px; border-radius: 999px;
+  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em;
+  background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent-border);
 }
 
 .hero-stat-card p {
@@ -261,31 +273,46 @@ h2 { margin: 0; font-size: 1.05rem; letter-spacing: 0.01em; color: var(--text); 
 .layout-grid {
   display: grid;
   grid-template-columns: 340px minmax(0, 1fr);
-  grid-template-rows: auto auto auto;
+  grid-auto-rows: auto;
   gap: 16px;
 }
 
 .card {
   border-radius: var(--radius-lg);
   background: var(--bg-base);
-  padding: 42px;
+  padding: 28px;
   min-width: 0;
 }
 
-.control-card { grid-column: 1; grid-row: 1; align-self: start; }
+/* Sidebar + content: the setup form stays sticky beside every result card */
+.control-card { grid-column: 1; grid-row: 1 / -1; align-self: start; }
+/* Only pin the form when the whole card (incl. Run button) fits below the header */
+@media (min-height: 940px) { .control-card { position: sticky; top: 84px; } }
 .sim-card     { grid-column: 2; grid-row: 1; }
-.table-card   { grid-column: 1 / -1; grid-row: 2; }
-.model-card   { grid-column: 1; grid-row: 3; }
-.graph-card   { grid-column: 2; grid-row: 3; }
-.compare-card { grid-column: 1 / -1; grid-row: 4; }
+.graph-card   { grid-column: 2; grid-row: 2; }
+.model-card   { grid-column: 2; grid-row: 3; }
+.compare-card { grid-column: 2; grid-row: 4; }
+.table-card   { grid-column: 2; grid-row: 5; }
+/* Model tiles: 5 across in the content column */
+.model-card .model-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.model-card .model-tile.full { grid-column: auto; }
 
 .section-heading {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
-  margin-bottom: 18px;
-  padding-bottom: 14px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--line);
+}
+/* One-line explanation under a section title */
+.section-sub {
+  flex-basis: 100%;
+  margin: -4px 0 0 13px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
 }
 
 .section-heading::before {
@@ -321,6 +348,8 @@ input[aria-invalid="true"] { border-color: var(--danger) !important; }
 input, select, button { font: inherit; }
 
 input[type="text"],
+input[type="date"],
+input[type="number"],
 select {
   width: 100%;
   border: 1px solid var(--line-strong);
@@ -336,6 +365,8 @@ select {
 select option { background: var(--bg-base); color: var(--text); }
 
 input[type="text"]:focus,
+input[type="date"]:focus,
+input[type="number"]:focus,
 select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
@@ -343,16 +374,47 @@ select:focus {
 
 .button-row { display: flex; gap: 10px; margin-top: 6px; }
 
+/* Example-athlete presets */
+.preset-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.preset-label { font-size: 0.74rem; color: var(--text-dim); margin-right: 2px; }
+.preset-btn {
+  border: 1px solid var(--line-strong);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 4px 11px;
+  font-size: 0.76rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 120ms, color 120ms, background 120ms;
+}
+.preset-btn:hover, .preset-btn:focus-visible { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); outline: none; }
+
+/* "Example data" notice */
+.demo-note {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(217,119,6,0.08);
+  border: 1px solid rgba(217,119,6,0.3);
+  color: #92400e;
+  font-size: 0.8rem;
+}
+.demo-note[hidden] { display: none; }
+
 .primary-btn,
 .ghost-btn {
   border: 0;
   border-radius: var(--radius-sm);
-  padding: 11px 18px;
+  padding: 11px 14px;
+  white-space: nowrap;
   cursor: pointer;
   font-weight: 600;
   font-size: 0.9rem;
   transition: transform 140ms, box-shadow 140ms;
 }
+
+.primary-btn.danger { background: linear-gradient(135deg, var(--danger), #ef4444); box-shadow: 0 4px 14px rgba(220,38,38,0.3); }
 
 .primary-btn {
   flex: 1;
@@ -368,7 +430,7 @@ select:focus {
 }
 
 .ghost-btn {
-  min-width: 88px;
+  min-width: 0;
   color: var(--text-secondary);
   background: var(--bg-surface);
   border: 1px solid var(--line-strong);
@@ -946,6 +1008,9 @@ body[data-strategy="sitAndKick"] {
   .control-card, .sim-card, .table-card, .model-card, .graph-card, .compare-card {
     grid-column: 1; grid-row: auto;
   }
+  .control-card { position: static; }
+  .model-card .model-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .model-card .model-tile.full { grid-column: 1 / -1; }
   .compare-grid { grid-template-columns: 1fr; }
 }
 
@@ -963,7 +1028,7 @@ body[data-strategy="sitAndKick"] {
   .button-row      { flex-direction: column; }
   .sim-metrics     { grid-template-columns: repeat(2, 1fr); }
   .lap-strip       { grid-template-columns: 1fr; }
-  .model-grid      { grid-template-columns: 1fr; }
+  .model-grid, .model-card .model-grid { grid-template-columns: 1fr; }
   h1               { font-size: 2rem; }
 }
 /* ═══════════════════════════════════════
@@ -974,4 +1039,57 @@ body[data-strategy="sitAndKick"] {
   *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
   .runner-pulse, .split-pulse { display: none; }
   .track-lane { filter: none; }
+}
+
+/* ═══════════════════════════════════════
+   TOASTS
+═══════════════════════════════════════ */
+.toast-root {
+  position: fixed;
+  right: 16px; bottom: 16px;
+  display: flex; flex-direction: column; gap: 8px;
+  z-index: 3000;
+  max-width: min(420px, calc(100vw - 32px));
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 12px 11px 14px;
+  border-radius: var(--radius-md);
+  background: #1f2430;
+  color: #fff;
+  font-size: 0.86rem;
+  line-height: 1.4;
+  box-shadow: var(--shadow-lg);
+  border-left: 4px solid var(--accent);
+  animation: toast-in 220ms ease-out;
+}
+.toast-success { border-left-color: #22c55e; }
+.toast-warning { border-left-color: #f59e0b; }
+.toast-error   { border-left-color: #ef4444; }
+.toast-icon {
+  flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0.72rem; font-weight: 700; background: rgba(255,255,255,0.14);
+}
+.toast-msg { flex: 1; }
+.toast-action {
+  background: rgba(255,255,255,0.12); border: 0; color: #fff; font: inherit; font-weight: 600;
+  padding: 5px 10px; border-radius: 6px; cursor: pointer; white-space: nowrap;
+}
+.toast-action:hover { background: rgba(255,255,255,0.22); }
+.toast-close { background: none; border: 0; color: rgba(255,255,255,0.6); cursor: pointer; font-size: 0.8rem; padding: 4px; }
+.toast-close:hover { color: #fff; }
+.toast-out { animation: toast-out 200ms ease-in forwards; }
+@keyframes toast-in  { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes toast-out { to { opacity: 0; transform: translateY(6px); } }
+
+/* Confirm dialog (builds on .modal-*) */
+.confirm-box { width: min(440px, 100%); padding: 22px 24px 22px; }
+.confirm-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+.confirm-actions .primary-btn { flex: 0 0 auto; }
+
+@media (max-width: 640px) {
+  .toast-root { right: 10px; left: 10px; bottom: 10px; max-width: none; }
 }

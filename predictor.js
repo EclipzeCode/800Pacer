@@ -58,6 +58,12 @@ const replayBtn        = document.getElementById("replayButton");
 
 let simulationState = null;
 let replayTimers    = [];
+let isDemoData      = false;   // true while the form shows placeholder/example values
+
+function updateDemoNote() {
+  const el = document.getElementById("demoNote");
+  if (el) el.hidden = !isDemoData;
+}
 
 /* ═══════════════════════════════════════════════════════════
    7A. GRAPH RENDERING
@@ -770,10 +776,32 @@ const STRATEGY_META = {
   sitAndKick:  { insight: "Draft the field, fire a decisive final 200m kick." },
 };
 
-function updateHero(strategy, predictedTime) {
-  heroPredicted.textContent      = predictedTime != null ? formatTime(predictedTime) : "—";
+const BAND_LABEL = { A: "Band A · Elite", B: "Band B · Sub-elite", C: "Band C · Competitive", D: "Band D · Developing" };
+
+function updateHero(strategy, ens, segments) {
+  heroPredicted.textContent      = ens ? formatTime(ens.mean) : "—";
   heroInsight.textContent        = STRATEGY_META[strategy]?.insight ?? "";
   document.body.dataset.strategy = strategy;
+
+  const bandEl  = document.getElementById("heroBand");
+  const rangeEl = document.getElementById("heroRange");
+  const factsEl = document.getElementById("heroFacts");
+  const nextEl  = document.getElementById("heroNext");
+  if (!ens) { if (nextEl) nextEl.hidden = true; return; }
+
+  if (bandEl)  { bandEl.textContent = BAND_LABEL[ens.band] ?? ""; bandEl.hidden = !ens.band; }
+  if (rangeEl) rangeEl.textContent = `est. range ±${ens.spreadRange.toFixed(1)}s`;
+  if (factsEl && segments) {
+    const l1 = segments.filter(x => x.lap === 1).reduce((a, x) => a + x.segmentSeconds, 0);
+    const l2 = segments.filter(x => x.lap === 2).reduce((a, x) => a + x.segmentSeconds, 0);
+    const nModels = Object.keys(ens.weightMap).filter(k => k !== "prior").length;
+    factsEl.innerHTML = `
+      <span>Lap 1 <b>${formatTime(l1)}</b></span>
+      <span>Lap 2 <b>${formatTime(l2)}</b></span>
+      <span>Avg <b>${(ens.mean / 8).toFixed(1)}s</b>/100m</span>
+      <span><b>${nModels}</b> model${nModels === 1 ? "" : "s"}${ens.weightMap.prior ? " + prior" : ""}</span>`;
+  }
+  if (nextEl) nextEl.hidden = false;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -842,7 +870,7 @@ function runSimulation({ persist = false } = {}) {
   simulationState = segments;
 
   updateModelTiles(riegel, cs, blend, vdot, ens);
-  updateHero(strategy, ens.mean);
+  updateHero(strategy, ens, segments);
   updateLapPills(segments);
   const graphPts = renderGraph(segments, ens.mean);
   attachGraphTooltip(segments, graphPts);
@@ -851,8 +879,12 @@ function runSimulation({ persist = false } = {}) {
   renderStrategyComparison(ens.mean, profile, strategy);
   startReplay();
 
+  updateDemoNote();
+
   // Persist to localStorage for Dashboard / Training pages — explicit submit only.
   if (!persist) return;
+  isDemoData = false;
+  updateDemoNote();
   try {
     localStorage.setItem("athleteProfile", JSON.stringify({
       t400, t1600, t800, profile, sex, strategy, savedAt: Date.now(),
@@ -873,6 +905,12 @@ function runSimulation({ persist = false } = {}) {
         t400, t1600: t1600 ?? null, t800: t800 ?? null, profile, sex,
       });
       localStorage.setItem("predictionHistory", JSON.stringify(hist.slice(-50)));
+      showToast(`Saved ${formatTime(ens.mean)} to your dashboard history.`, {
+        type: "success",
+        action: { label: "View", onClick: () => { window.location.href = "dashboard.html"; } },
+      });
+    } else {
+      showToast("Profile saved — inputs unchanged, so no new history entry.", { type: "info", duration: 3000 });
     }
   } catch (_) {}
 }
@@ -939,6 +977,7 @@ function showAnchorHint() {
       pr800Input.value = formatInput(latest.time);
       pr800Input.dispatchEvent(new Event("input", { bubbles: true }));
       hintEl.hidden = true;
+      isDemoData = false;
       runSimulation({ persist: true });
     });
   } catch (_) {}
@@ -954,8 +993,46 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (replayBtn) replayBtn.addEventListener("click", startReplay);
 
+  // Example athletes — fill the form (not persisted until the user submits).
+  const PRESETS = {
+    hs:      { pr400: "56.5", pr1600: "4:52",  pr800: "",       sex: "male", profile: "balanced", strategy: "negative" },
+    college: { pr400: "49.8", pr1600: "4:12",  pr800: "1:53.4", sex: "male", profile: "balanced", strategy: "negative" },
+    elite:   { pr400: "46.9", pr1600: "3:52",  pr800: "1:45.8", sex: "male", profile: "speed",    strategy: "sitAndKick" },
+  };
+  document.querySelectorAll(".preset-btn[data-preset]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const p = PRESETS[btn.dataset.preset];
+      if (!p) return;
+      pr400Input.value = p.pr400; pr1600Input.value = p.pr1600; pr800Input.value = p.pr800;
+      document.getElementById("sex").value = p.sex;
+      profileInput.value  = p.profile;
+      strategyInput.value = p.strategy;
+      TIME_FIELDS.forEach(showFieldState);
+      isDemoData = true;
+      runSimulation();
+      showToast(`Loaded the ${btn.textContent.split(" ·")[0].toLowerCase()} example. Edit any field to make it yours.`, { type: "info" });
+    });
+  });
+
+  document.getElementById("resetButton")?.addEventListener("click", async () => {
+    const ok = await confirmDialog({
+      title: "Clear the form?",
+      body: "This clears the inputs on this page. Your saved profile, history and race log on the dashboard are not affected.",
+      confirmLabel: "Clear form",
+    });
+    if (!ok) return;
+    pr400Input.value = ""; pr1600Input.value = ""; pr800Input.value = "";
+    document.getElementById("sex").value = "male";
+    profileInput.value  = "balanced";
+    strategyInput.value = "negative";
+    TIME_FIELDS.forEach(showFieldState);
+    try { localStorage.removeItem("formDraft"); } catch (_) {}
+    pr400Input.focus();
+    showToast("Form cleared.", { type: "success", duration: 2500 });
+  });
+
   // Live echo / validation as the user types; remember the draft.
-  TIME_FIELDS.forEach(f => f.input.addEventListener("input", () => { showFieldState(f); saveFormDraft(); }));
+  TIME_FIELDS.forEach(f => f.input.addEventListener("input", () => { showFieldState(f); saveFormDraft(); isDemoData = false; updateDemoNote(); }));
   ["sex", "profile", "strategy"].forEach(id => document.getElementById(id).addEventListener("change", saveFormDraft));
 
   strategyInput.addEventListener("change", () => {
@@ -978,7 +1055,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Initial render: use the saved profile if there is one, otherwise the
   // placeholder demo values. Neither is written to history.
-  prefillFromSavedProfile();
+  isDemoData = !prefillFromSavedProfile();   // nothing saved → placeholder values
   document.body.dataset.strategy = strategyInput.value;
   runSimulation();
   showAnchorHint();

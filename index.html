@@ -16,6 +16,7 @@
 <link rel="stylesheet" href="styles.css">
 <link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
+<script defer src="ui.js"></script>
 <script defer src="models.js"></script>
 <script defer src="predictor.js"></script>
 <script defer src="/_vercel/insights/script.js"></script>
@@ -44,9 +45,15 @@
     </p>
   </div>
   <div class="hero-stat-card">
-    <span class="stat-label">Predicted 800m</span>
+    <span class="stat-label">Predicted 800m <span class="badge" id="heroBand" hidden></span></span>
     <strong id="heroPredicted">—</strong>
+    <div class="hero-range" id="heroRange"></div>
+    <div class="hero-facts" id="heroFacts"></div>
     <p id="heroInsight">Enter your PRs and run the simulation.</p>
+    <div class="hero-next" id="heroNext" hidden>
+      <a href="training.html">Get training zones for this fitness →</a>
+      <a href="dashboard.html">Track it on your dashboard →</a>
+    </div>
   </div>
 </header>
 
@@ -56,8 +63,21 @@
   <!-- ── ROW 1: Controls (left) + Track Playback (right) ── -->
 
   <section class="card control-card">
-    <div class="section-heading"><h2>Athlete Setup</h2></div>
+    <div class="section-heading">
+      <h2>Athlete Setup</h2>
+      <p class="section-sub">Only a 400m PR is required. Add a 1600m PR to unlock the aerobic models.</p>
+    </div>
+    <div class="demo-note" id="demoNote" hidden>
+      <span aria-hidden="true">👀</span>
+      <span>Showing an example athlete — enter your own PRs to get your prediction.</span>
+    </div>
     <form id="simForm" class="control-form">
+      <div class="preset-row" role="group" aria-label="Example athletes">
+        <span class="preset-label">Try an example:</span>
+        <button type="button" class="preset-btn" data-preset="hs">High school · 2:05</button>
+        <button type="button" class="preset-btn" data-preset="college">Collegiate · 1:52</button>
+        <button type="button" class="preset-btn" data-preset="elite">Elite · 1:45</button>
+      </div>
 
       <label class="field">
         <span>400m PR <em>(required)</em></span>
@@ -111,13 +131,17 @@
       <div class="button-row">
         <button class="primary-btn" type="submit">Run Simulation</button>
         <button class="ghost-btn" type="button" id="replayButton" title="Replay the race animation">Replay</button>
+        <button class="ghost-btn" type="button" id="resetButton" title="Clear the form">Reset</button>
       </div>
 
     </form>
   </section>
 
   <section class="card sim-card">
-    <div class="section-heading"><h2>Race Playback — 2 Laps (8 × 100m)</h2></div>
+    <div class="section-heading">
+      <h2>Race Playback</h2>
+      <p class="section-sub">Watch the predicted race unfold 100m at a time. Both laps share the same markers — the bold number is the current lap.</p>
+    </div>
 
     <div class="sim-metrics">
       <div class="metric-pill">
@@ -230,7 +254,10 @@
   <!-- ── ROW 2: Full-width Split Breakdown ── -->
 
   <section class="card table-card">
-    <div class="section-heading"><h2>100m Split Breakdown</h2></div>
+    <div class="section-heading">
+      <h2>100m Split Breakdown</h2>
+      <p class="section-sub">Every split for the selected strategy. Green is faster than your average 100m, orange slower.</p>
+    </div>
     <div class="table-inner">
       <table>
         <thead>
@@ -252,7 +279,10 @@
   <!-- ── ROW 3: Model Predictions (left) + Fatigue Graph (right) ── -->
 
   <section class="card model-card">
-    <div class="section-heading"><h2>Model Predictions</h2></div>
+    <div class="section-heading">
+      <h2>How the prediction was built</h2>
+      <p class="section-sub">Four independent models, blended by how much each one can be trusted for your profile. Click any tile for the science.</p>
+    </div>
     <div class="model-grid">
       <div class="model-tile" data-model="riegel" role="button" tabindex="0" aria-haspopup="dialog">
         <span class="tile-label">Riegel Power-Law</span>
@@ -289,7 +319,10 @@
   </section>
 
   <section class="card graph-card">
-    <div class="section-heading"><h2>Fatigue &amp; Pace per 100m</h2></div>
+    <div class="section-heading">
+      <h2>Fatigue &amp; Pace</h2>
+      <p class="section-sub">How hard each 100m feels (fatigue index) against how fast it is. Hover or tap a point for details.</p>
+    </div>
     <div id="graph-card-wrap" style="position:relative">
       <svg id="fatigueGraph" viewBox="0 0 520 200" class="fatigue-graph">
         <defs>
@@ -327,7 +360,7 @@
   <section class="card compare-card">
     <div class="section-heading">
       <h2>Strategy Comparison</h2>
-      <span class="heading-note">Same predicted total, four race shapes — click one to switch</span>
+      <p class="section-sub">Same finishing time, four ways to run it. Click a row or line to make it the active strategy.</p>
     </div>
     <div class="compare-grid">
       <svg id="compareGraph" viewBox="0 0 520 170" class="fatigue-graph" role="img" aria-label="100m split pace for each strategy"></svg>

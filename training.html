@@ -14,6 +14,7 @@
 <link rel="stylesheet" href="training.css">
 <link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
+<script defer src="ui.js"></script>
 <script defer src="models.js"></script>
 <script defer src="training.js"></script>
 <script defer src="/_vercel/insights/script.js"></script>
@@ -52,7 +53,10 @@
 
   <!-- INPUT CARD -->
   <section class="card input-card">
-    <div class="section-heading"><h2>Your PRs</h2></div>
+    <div class="section-heading">
+      <h2>Your PRs</h2>
+      <p class="section-sub">Loaded from the predictor if you've run it. A 1600m PR unlocks VDOT zones.</p>
+    </div>
     <form class="train-form" id="trainForm">
       <div class="field">
         <span>400m PR <em style="color:var(--text-secondary)">(required)</em></span>
@@ -86,7 +90,10 @@
 
   <!-- VDOT ZONES -->
   <section class="card zones-card">
-    <div class="section-heading"><h2>VDOT Training Zones</h2></div>
+    <div class="section-heading">
+      <h2>Training Zones</h2>
+      <p class="section-sub">Target paces per 400m for each type of session, from your VDOT.</p>
+    </div>
     <div id="zonesOutput">
       <div class="zone-locked">
         Enter your PRs and click Generate Training to see your personalised paces.
@@ -96,7 +103,10 @@
 
   <!-- WORKOUT GENERATOR -->
   <section class="card workouts-card">
-    <div class="section-heading"><h2>Personalised Workouts</h2></div>
+    <div class="section-heading">
+      <h2>Workouts</h2>
+      <p class="section-sub">Six sessions matched to your athlete profile, with paces from your zones.</p>
+    </div>
     <div id="workoutsOutput">
       <p style="color:var(--text-secondary);font-size:0.88rem">Enter your PRs above to generate workouts tailored to your fitness level and athlete profile.</p>
     </div>
@@ -104,10 +114,12 @@
 
   <!-- RACE PACE CALCULATOR -->
   <section class="card pacecalc-card">
-    <div class="section-heading"><h2>Race Pace Calculator</h2></div>
-    <p style="font-size:0.84rem;color:var(--text-secondary);margin-bottom:2px">Enter a goal 800m time to see target splits across all four strategies.</p>
+    <div class="section-heading">
+      <h2>Race Pace Calculator</h2>
+      <p class="section-sub">Enter a goal 800m time to get 100m targets for every strategy. Print it for race day.</p>
+    </div>
     <div class="pace-input-row">
-      <input id="paceGoalInput" type="text" placeholder="e.g. 1:55.0">
+      <div style="flex:1;display:grid;gap:6px"><input id="paceGoalInput" type="text" inputmode="decimal" placeholder="Goal 800m, e.g. 1:55.0" aria-label="Goal 800m time"></div>
       <button class="primary-btn" id="paceCalcBtn" type="button">Calculate</button>
     </div>
     <div id="paceOutput"></div>
@@ -116,7 +128,10 @@
 
   <!-- SPEED PROFILE ANALYSIS -->
   <section class="card profile-card">
-    <div class="section-heading"><h2>Speed Profile Analysis</h2></div>
+    <div class="section-heading">
+      <h2>Speed Profile</h2>
+      <p class="section-sub">Are you speed-limited or aerobically limited? Compares your 400m-based and 1600m-based predictions.</p>
+    </div>
     <div id="profileOutput">
       <p style="color:var(--text-secondary);font-size:0.88rem">Enter your 400m and 1600m PRs above to see your speed-vs-aerobic diagnostic.</p>
     </div>
@@ -124,13 +139,16 @@
 
   <!-- GOAL PLANNER -->
   <section class="card planner-card">
-    <div class="section-heading"><h2>Time-to-Goal Planner</h2></div>
+    <div class="section-heading">
+      <h2>Time-to-Goal Planner</h2>
+      <p class="section-sub">How many weeks you have and how to phase them. Goal time is shared with the pace calculator.</p>
+    </div>
     <div class="planner-grid">
       <div class="planner-input">
-        <label>Goal 800m Time <input id="planGoal" type="text" placeholder="e.g. 1:55.0"></label>
+        <label>Goal 800m Time <input id="planGoal" type="text" inputmode="decimal" placeholder="e.g. 1:55.0"></label>
         <label>Target Race Date <input id="planDate" type="date"></label>
         <label>Current Predicted Time
-          <input id="planCurrent" type="text" placeholder="from predictor, e.g. 2:00.0">
+          <input id="planCurrent" type="text" inputmode="decimal" placeholder="from predictor, e.g. 2:00.0">
         </label>
         <button class="primary-btn" id="planBtn" type="button" style="align-self:flex-start">Plan</button>
       </div>

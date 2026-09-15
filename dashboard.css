@@ -97,18 +97,8 @@
 
 /* ── Goal card ─────────────────────────────────────────── */
 .goal-form { display: flex; gap: 8px; margin-top: 12px; }
-.goal-form input {
-  flex: 1;
-  padding: 9px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  font-size: 0.92rem;
-  font-family: inherit;
-  background: var(--bg-surface);
-  color: var(--text);
-  transition: border-color 150ms;
-}
-.goal-form input:focus { outline: none; border-color: var(--accent); }
+.goal-form { align-items: flex-start; }
+.goal-form .log-add-btn { align-self: flex-start; }
 
 .goal-gap { margin-top: 14px; font-size: 0.88rem; color: var(--text-secondary); }
 .goal-gap strong { color: var(--text); font-size: 1.05rem; }
@@ -183,17 +173,8 @@
   font-size: 0.8rem;
   color: var(--text-secondary);
 }
-.log-form input {
-  padding: 9px 10px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  font-size: 0.88rem;
-  font-family: inherit;
-  background: var(--bg-surface);
-  color: var(--text);
-  transition: border-color 150ms;
-}
-.log-form input:focus { outline: none; border-color: var(--accent); }
+.log-form { align-items: start; }
+.log-form label { gap: 6px; }
 
 .log-add-btn {
   padding: 9px 16px;
@@ -206,8 +187,10 @@
   cursor: pointer;
   white-space: nowrap;
   transition: background 150ms;
-  align-self: end;
+  align-self: start;
+  margin-top: 21px;   /* align with inputs under their labels */
 }
+.goal-form .log-add-btn { margin-top: 0; }
 .log-add-btn:hover { background: var(--accent-light); }
 
 .delta-pos { color: #e85d20; font-weight: 600; }

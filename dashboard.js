@@ -113,6 +113,7 @@ function renderProfileCard(profile) {
     <div class="section-heading">
       <h2>Athlete Profile</h2>
       <a href="index.html" style="font-size:0.78rem;color:var(--accent);text-decoration:none;margin-left:auto">Update PRs ↗</a>
+      <p class="section-sub">Your saved PRs and where you sit on the speed–aerobic spectrum.</p>
     </div>
     <div class="pr-row">
       <div class="pr-chip"><span>400m PR</span><strong>${profile.t400 ? formatInput(profile.t400) : "—"}</strong></div>
@@ -155,9 +156,12 @@ function renderGoalCard(goal, history) {
 
   return `
   <div class="card dash-goal-card">
-    <div class="section-heading"><h2>Goal Time</h2></div>
+    <div class="section-heading">
+      <h2>Goal Time</h2>
+      <p class="section-sub">Set a target and the chart and planner will track your gap to it.</p>
+    </div>
     <div class="goal-form">
-      <input id="goalInput" type="text" placeholder="e.g. 1:55.0" value="${goalSec ? fmtTime(goalSec) : ""}">
+      <div style="flex:1;display:grid;gap:6px"><input id="goalInput" type="text" inputmode="decimal" placeholder="e.g. 1:55.0" value="${goalSec ? formatInput(goalSec) : ""}" aria-label="Goal 800m time"></div>
       <button class="log-add-btn" id="goalSaveBtn">Save</button>
     </div>
     <div class="goal-gap">
@@ -309,10 +313,13 @@ function renderRaceLog(raceLog, history) {
 
   return `
   <div class="card dash-racelog-card">
-    <div class="section-heading"><h2>Race Log</h2></div>
+    <div class="section-heading">
+      <h2>Race Log</h2>
+      <p class="section-sub">Log real results to see how predictions compare — and use one as the anchor for your next prediction.</p>
+    </div>
     <div class="log-form">
       <label>Date<input id="logDate" type="date" value="${localDateInputValue()}"></label>
-      <label>Finish Time<input id="logTime" type="text" placeholder="e.g. 1:58.4"></label>
+      <label>Finish Time<input id="logTime" type="text" inputmode="decimal" placeholder="e.g. 1:58.4"></label>
       <label>Venue / Meet<input id="logVenue" type="text" placeholder="optional"></label>
       <button class="log-add-btn" id="logAddBtn">+ Add Race</button>
     </div>
@@ -336,9 +343,10 @@ function renderRaceLog(raceLog, history) {
 function renderDataCard(history, raceLog) {
   return `
   <div class="card dash-data-card">
-    <div class="section-heading"><h2>Your Data</h2></div>
-    <p class="data-copy">Everything lives in this browser only. Export a backup to move it to another device, or start over.</p>
-    <p class="data-copy" id="anchorNote"></p>
+    <div class="section-heading">
+      <h2>Your Data</h2>
+      <p class="section-sub">Everything lives in this browser only. Export a backup to move it to another device, or start over.</p>
+    </div>
     <div class="data-actions">
       <button class="ghost-btn" id="exportBtn" type="button">Export JSON</button>
       <label class="ghost-btn file-btn">Import JSON<input type="file" id="importFile" accept="application/json,.json" hidden></label>
@@ -395,26 +403,40 @@ function renderDashboard() {
     pt.addEventListener("click", showTip);
   });
 
-  document.getElementById("goalSaveBtn")?.addEventListener("click", () => {
-    const t = parseTimeStr(document.getElementById("goalInput")?.value);
-    if (!t || t < 60 || t > 400) { alert("Enter a valid goal time, e.g. 1:55.0"); return; }
-    saveGoal({ goalTime: t, setAt: Date.now() });
+  const saveGoalFromInput = () => {
+    const input = document.getElementById("goalInput");
+    const r = validateTimeInput(input?.value, "t800");
+    if (!r.sec) { setFieldError(input, r.error || "Enter a goal time, e.g. 1:55.0"); return; }
+    saveGoal({ goalTime: r.sec, setAt: Date.now() });
     renderDashboard();
-  });
+    showToast(`Goal set to ${fmtTime(r.sec)}.`, { type: "success", duration: 3000 });
+  };
+  document.getElementById("goalSaveBtn")?.addEventListener("click", saveGoalFromInput);
+  document.getElementById("goalInput")?.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); saveGoalFromInput(); } });
 
-  document.getElementById("logAddBtn")?.addEventListener("click", () => {
-    const t = parseTimeStr(document.getElementById("logTime")?.value);
-    if (!t || t < 60 || t > 400) { alert("Enter a valid finish time, e.g. 1:58.4"); return; }
+  const addRaceFromForm = () => {
+    const timeIn = document.getElementById("logTime");
+    const dateIn = document.getElementById("logDate");
+    const r = validateTimeInput(timeIn?.value, "t800");
+    let bad = false;
+    if (!dateIn?.value) { setFieldError(dateIn, "Pick the race date."); bad = true; }
+    if (!r.sec)         { setFieldError(timeIn, r.error || "Enter your finish time, e.g. 1:58.4"); bad = true; }
+    if (bad) return;
     const { raceLog: log } = loadStorage();
-    const dateStr = document.getElementById("logDate")?.value;
     log.push({
-      date  : localDateToTs(dateStr),
-      time  : t,
+      date  : localDateToTs(dateIn.value),
+      time  : r.sec,
       venue : document.getElementById("logVenue")?.value?.trim() || "",
     });
     saveRaceLog(log);
     renderDashboard();
-  });
+    showToast(`Logged ${fmtTime(r.sec)} on ${fmtDate(localDateToTs(dateIn.value))}.`, {
+      type: "success",
+      action: { label: "Undo", onClick: () => { const { raceLog: l } = loadStorage(); l.pop(); saveRaceLog(l); renderDashboard(); } },
+    });
+  };
+  document.getElementById("logAddBtn")?.addEventListener("click", addRaceFromForm);
+  ["logTime", "logVenue"].forEach(id => document.getElementById(id)?.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); addRaceFromForm(); } }));
 
   document.querySelectorAll(".log-anchor-btn").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -424,8 +446,10 @@ function renderDashboard() {
       const next = Object.assign({}, p || {}, { t800: entry.time, savedAt: Date.now() });
       try { localStorage.setItem("athleteProfile", JSON.stringify(next)); localStorage.removeItem("formDraft"); } catch (_) {}
       renderDashboard();   // refresh chips + row state
-      const note = document.getElementById("anchorNote");
-      if (note) note.innerHTML = `<strong>${fmtTime(entry.time)}</strong> is now your Previous 800m anchor. <a href="index.html">Re-run the predictor ↗</a>`;
+      showToast(`${fmtTime(entry.time)} is now your Previous 800m anchor.`, {
+        type: "success", duration: 6000,
+        action: { label: "Re-run predictor", onClick: () => { window.location.href = "index.html"; } },
+      });
     });
   });
 
@@ -437,6 +461,7 @@ function renderDashboard() {
     a.download = `800m-data-${localDateInputValue()}.json`;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    showToast(`Exported ${a.download}.`, { type: "success", duration: 3000 });
   });
 
   document.getElementById("importFile")?.addEventListener("change", async e => {
@@ -452,30 +477,49 @@ function renderDashboard() {
       if (Array.isArray(data.raceLog)) localStorage.setItem("raceLog",           JSON.stringify(data.raceLog));
       if (data.goal)                   localStorage.setItem("athleteGoal",       JSON.stringify(data.goal));
       renderDashboard();
-      const s2 = document.getElementById("dataStatus");
-      if (s2) s2.textContent = `Imported ${file.name}.`;
+      showToast(`Imported ${file.name}.`, { type: "success" });
     } catch (err) {
-      if (status) { status.textContent = "Couldn't import that file — it doesn't look like an export from this app."; status.style.color = "var(--danger)"; }
+      showToast("Couldn't import that file — it doesn't look like an export from this app.", { type: "error", duration: 6000 });
+    } finally {
+      e.target.value = "";
     }
   });
 
-  document.getElementById("clearHistoryBtn")?.addEventListener("click", () => {
-    if (!confirm("Clear all saved prediction estimates? Race log and profile are kept.")) return;
+  document.getElementById("clearHistoryBtn")?.addEventListener("click", async () => {
+    const n = loadStorage().history.length;
+    const ok = await confirmDialog({
+      title: "Clear prediction history?",
+      body: `This removes ${n} saved estimate${n === 1 ? "" : "s"}. Your profile, race log and goal are kept.`,
+      confirmLabel: "Clear estimates", danger: true,
+    });
+    if (!ok) return;
     localStorage.removeItem("predictionHistory");
     renderDashboard();
+    showToast("Prediction history cleared.", { type: "success", duration: 3000 });
   });
-  document.getElementById("resetAllBtn")?.addEventListener("click", () => {
-    if (!confirm("Delete ALL saved data (profile, estimates, race log, goal)? This cannot be undone.")) return;
+  document.getElementById("resetAllBtn")?.addEventListener("click", async () => {
+    const ok = await confirmDialog({
+      title: "Delete all saved data?",
+      body: "Profile, estimates, race log and goal will be removed from this browser. Export a backup first if you might want them back — this cannot be undone.",
+      confirmLabel: "Delete everything", danger: true,
+    });
+    if (!ok) return;
     ["athleteProfile", "predictionHistory", "raceLog", "athleteGoal", "formDraft"].forEach(k => localStorage.removeItem(k));
     renderDashboard();
+    showToast("All data removed.", { type: "success", duration: 3000 });
   });
 
   document.querySelectorAll(".log-del-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       const { raceLog: log } = loadStorage();
-      log.splice(parseInt(btn.dataset.idx, 10), 1);
+      const idx = parseInt(btn.dataset.idx, 10);
+      const [removed] = log.splice(idx, 1);
       saveRaceLog(log);
       renderDashboard();
+      if (removed) showToast(`Removed ${fmtTime(removed.time)} from the race log.`, {
+        type: "info",
+        action: { label: "Undo", onClick: () => { const { raceLog: l } = loadStorage(); l.splice(idx, 0, removed); saveRaceLog(l); renderDashboard(); } },
+      });
     });
   });
 }
