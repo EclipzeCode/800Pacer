@@ -1,11 +1,23 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>800m Time Calculator</title>
+<title>800m Time Calculator — Track Race Predictor</title>
+<meta name="description" content="Predict your 800m race time from your 400m and 1600m PRs using an ensemble of Riegel, Critical Speed, MSS/MAS and VDOT models, with animated 100m splits and pacing strategies.">
+<meta property="og:title" content="800m Time Calculator">
+<meta property="og:description" content="Predict your 800m from your PRs. Ensemble of four physiological models with animated splits.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#e85d20">
+<link rel="preload" href="styles.css" as="style">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@600;700&display=swap">
 <link rel="stylesheet" href="styles.css">
-<link rel="icon" type="image/png" href="800timecalcfavicon.png">
+<link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<script defer src="models.js"></script>
+<script defer src="predictor.js"></script>
 <script defer src="/_vercel/insights/script.js"></script>
 </head>
 
@@ -49,17 +61,24 @@
 
       <label class="field">
         <span>400m PR <em>(required)</em></span>
-        <input id="pr400" type="text" placeholder="e.g. 52.4" value="52.4">
+        <input id="pr400" type="text" inputmode="decimal" placeholder="e.g. 52.4" value="52.4"
+               aria-describedby="pr400Msg">
+        <small class="field-msg" id="pr400Msg" aria-live="polite"></small>
       </label>
 
       <label class="field">
         <span>1600m PR <em>(optional — enables Critical Speed model)</em></span>
-        <input id="pr1600" type="text" placeholder="e.g. 4:28.0">
+        <input id="pr1600" type="text" inputmode="decimal" placeholder="e.g. 4:28.0"
+               aria-describedby="pr1600Msg">
+        <small class="field-msg" id="pr1600Msg" aria-live="polite"></small>
       </label>
 
       <label class="field">
         <span>Previous 800m <em>(optional — used as anchor)</em></span>
-        <input id="pr800" type="text" placeholder="e.g. 1:58.0">
+        <input id="pr800" type="text" inputmode="decimal" placeholder="e.g. 1:58.0"
+               aria-describedby="pr800Msg">
+        <small class="field-msg" id="pr800Msg" aria-live="polite"></small>
+        <small class="anchor-hint" id="anchorHint" hidden></small>
       </label>
 
       <label class="field">
@@ -91,6 +110,7 @@
 
       <div class="button-row">
         <button class="primary-btn" type="submit">Run Simulation</button>
+        <button class="ghost-btn" type="button" id="replayButton" title="Replay the race animation">Replay</button>
       </div>
 
     </form>
@@ -105,7 +125,7 @@
         <strong id="elapsedMetric">0:00.0</strong>
       </div>
       <div class="metric-pill">
-        <span>Projected Finish</span>
+        <span title="Finish time at your average pace so far">Projected @ Pace</span>
         <strong id="projectionMetric">—</strong>
       </div>
       <div class="metric-pill">
@@ -134,7 +154,7 @@
           </linearGradient>
         </defs>
 
-        <!-- Dark backdrop -->
+        <!-- Backdrop (white, see .track-backdrop) -->
         <rect x="0" y="0" width="760" height="320" class="track-backdrop"/>
 
         <!-- Infield (grass interior) -->
@@ -180,16 +200,17 @@
         <text x="168" y="33" font-size="8.5" fill="rgba(255,220,160,0.80)"
               font-family="Bahnschrift,sans-serif" letter-spacing="1">START / FINISH</text>
 
-        <!-- Direction arrow on back straight -->
+        <!-- Direction arrow on back straight (runner travels left-to-right here) -->
         <text x="380" y="298" text-anchor="middle" font-size="13"
               fill="rgba(255,255,255,0.35)" font-family="sans-serif">›</text>
 
         <!-- Inner label -->
-        <text x="380" y="164" text-anchor="middle" font-size="10"
-              fill="rgba(160,220,160,0.35)" font-family="Bahnschrift,sans-serif" letter-spacing="3">800m · 2 LAPS</text>
+        <text id="lapIndicator" x="380" y="164" text-anchor="middle" font-size="11"
+              fill="rgba(200,240,200,0.55)" font-family="Bahnschrift,sans-serif" letter-spacing="3">800m · 2 LAPS</text>
 
         <g id="splitMarkers"></g>
 
+        <circle id="runnerHalo"  r="16" cx="160" cy="40" class="runner-halo"/>
         <circle id="runnerDot"   r="10" cx="160" cy="40" class="runner-dot"/>
         <circle id="runnerPulse" r="12" cx="160" cy="40" class="runner-pulse">
           <animate attributeName="r"       from="12" to="26" dur="1.8s" repeatCount="indefinite"/>
@@ -233,30 +254,35 @@
   <section class="card model-card">
     <div class="section-heading"><h2>Model Predictions</h2></div>
     <div class="model-grid">
-      <div class="model-tile" data-model="riegel">
+      <div class="model-tile" data-model="riegel" role="button" tabindex="0" aria-haspopup="dialog">
         <span class="tile-label">Riegel Power-Law</span>
         <strong id="riegelVal">—</strong>
+        <span class="tile-weight" id="riegelW"></span>
         <span class="tile-hint">Click to learn more ↗</span>
       </div>
-      <div class="model-tile" data-model="cs">
+      <div class="model-tile" data-model="cs" role="button" tabindex="0" aria-haspopup="dialog">
         <span class="tile-label">Critical Speed</span>
         <strong id="csVal">—</strong>
+        <span class="tile-weight" id="csW"></span>
         <span class="tile-hint">Click to learn more ↗</span>
       </div>
-      <div class="model-tile" data-model="blend">
+      <div class="model-tile" data-model="blend" role="button" tabindex="0" aria-haspopup="dialog">
         <span class="tile-label">MSS / MAS Blend</span>
         <strong id="blendVal">—</strong>
+        <span class="tile-weight" id="blendW"></span>
         <span class="tile-hint">Click to learn more ↗</span>
       </div>
-      <div class="model-tile" data-model="vdot">
+      <div class="model-tile" data-model="vdot" role="button" tabindex="0" aria-haspopup="dialog">
         <span class="tile-label">VDOT (Jack Daniels)</span>
         <strong id="vdotVal">—</strong>
+        <span class="tile-weight" id="vdotW"></span>
         <span class="tile-hint">Click to learn more ↗</span>
       </div>
-      <div class="model-tile accent full" data-model="ensemble">
+      <div class="model-tile accent full" data-model="ensemble" role="button" tabindex="0" aria-haspopup="dialog">
         <span class="tile-label">Ensemble (Weighted Avg)</span>
         <strong id="ensembleVal">—</strong>
-        <p id="ensembleCI" class="ensemble-ci">±—</p>
+        <p id="ensembleCI" class="ensemble-ci" title="Model-disagreement range, not a confidence interval">est. range ±—</p>
+        <span class="tile-weight muted" id="priorW"></span>
         <span class="tile-hint">Click to learn more ↗</span>
       </div>
     </div>
@@ -267,15 +293,15 @@
     <div id="graph-card-wrap" style="position:relative">
       <svg id="fatigueGraph" viewBox="0 0 520 200" class="fatigue-graph">
         <defs>
-          <!-- Teal fatigue fill — original colours preserved -->
+          <!-- Teal fatigue fill -->
           <linearGradient id="fatigueFill" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%"   stop-color="#2ef2c1" stop-opacity="0.45"/>
-            <stop offset="100%" stop-color="#2ef2c1" stop-opacity="0.03"/>
+            <stop offset="0%"   stop-color="#0f8a6e" stop-opacity="0.30"/>
+            <stop offset="100%" stop-color="#0f8a6e" stop-opacity="0.02"/>
           </linearGradient>
           <!-- Blue pace fill -->
           <linearGradient id="paceFill" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%"   stop-color="#56a8ff" stop-opacity="0.38"/>
-            <stop offset="100%" stop-color="#56a8ff" stop-opacity="0.03"/>
+            <stop offset="0%"   stop-color="#2563eb" stop-opacity="0.22"/>
+            <stop offset="100%" stop-color="#2563eb" stop-opacity="0.02"/>
           </linearGradient>
         </defs>
         <g id="graphGrid"></g>
@@ -285,15 +311,41 @@
         <path id="fatigueLine" class="graph-line"></path>
         <path id="paceArea"    style="fill:url(#paceFill)"></path>
         <path id="paceLine"    class="graph-line"
-              style="stroke:#56a8ff;stroke-width:2.5;stroke-dasharray:5 3"></path>
+              style="stroke:#2563eb;stroke-width:2.5;stroke-dasharray:5 3"></path>
         <g id="graphPoints"></g>
         <g id="graphLabels"></g>
       </svg>
       <div id="graphTooltip" class="graph-tooltip"></div>
     </div>
     <div class="graph-legend">
-      <span class="legend-item accent-dot">Fatigue %</span>
-      <span class="legend-item accent2-dot">Pace (s/100m, normalized)</span>
+      <span class="legend-item accent-dot">Fatigue index %</span>
+      <span class="legend-item accent2-dot">Pace, s/100m (higher = faster)</span>
+    </div>
+  </section>
+
+  <!-- ── ROW 4: Strategy comparison (full width) ── -->
+  <section class="card compare-card">
+    <div class="section-heading">
+      <h2>Strategy Comparison</h2>
+      <span class="heading-note">Same predicted total, four race shapes — click one to switch</span>
+    </div>
+    <div class="compare-grid">
+      <svg id="compareGraph" viewBox="0 0 520 170" class="fatigue-graph" role="img" aria-label="100m split pace for each strategy"></svg>
+      <div class="table-inner">
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th>Strategy</th>
+              <th title="First 200m">Open 200</th>
+              <th>Lap 1</th>
+              <th>Lap 2</th>
+              <th title="Last 200m">Close 200</th>
+              <th title="Lap 2 ÷ Lap 1">L2/L1</th>
+            </tr>
+          </thead>
+          <tbody id="compareTableBody"></tbody>
+        </table>
+      </div>
     </div>
   </section>
 
@@ -335,6 +387,5 @@
 
 </div>
 
-<script src="script.js"></script>
 </body>
 </html>

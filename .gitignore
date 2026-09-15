@@ -1,0 +1,9 @@
+# Local tooling / secrets
+.claude/
+.agents/
+skills-lock.json
+
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,264 @@
+/* dashboard.html — page-specific styles (extracted from inline <style>) */
+/* ── Dashboard layout ──────────────────────────────────── */
+.dash-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto;
+  gap: 16px;
+}
+
+.dash-profile-card { grid-column: 1; grid-row: 1; }
+.dash-goal-card    { grid-column: 2; grid-row: 1; }
+.dash-history-card { grid-column: 1 / -1; grid-row: 2; }
+.dash-racelog-card { grid-column: 1 / -1; grid-row: 3; }
+
+@media (max-width: 1100px) {
+  .dash-grid { grid-template-columns: 1fr; }
+  .dash-profile-card, .dash-goal-card,
+  .dash-history-card, .dash-racelog-card, .dash-data-card {
+    grid-column: 1; grid-row: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .log-form   { grid-template-columns: 1fr; }
+  .pr-row     { gap: 8px; }
+  .pr-chip    { min-width: 70px; flex: 1 1 calc(50% - 4px); }
+}
+
+/* ── Profile chips ─────────────────────────────────────── */
+.pr-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.pr-chip {
+  background: var(--bg-surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 90px;
+}
+.pr-chip span   { font-size: 0.72rem; color: var(--text-secondary); letter-spacing: 0.04em; text-transform: uppercase; }
+.pr-chip strong { font-size: 1.05rem; color: var(--text); letter-spacing: -0.01em; }
+
+/* ── SRR bar ────────────────────────────────────────────── */
+.srr-wrap {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.srr-label-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+.srr-track {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--bg-surface);
+  border: 1px solid var(--line);
+  position: relative;
+  overflow: visible;
+}
+.srr-dot {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid #fff;
+  box-shadow: 0 0 6px rgba(232,93,32,0.5);
+}
+.srr-value { margin-top: 8px; font-size: 0.82rem; color: var(--text-secondary); }
+.srr-value strong { color: var(--text); }
+
+.band-badge {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.73rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.band-A { background: rgba(100,200,120,0.15); color: #2d8a4e; border: 1px solid rgba(100,200,120,0.3); }
+.band-B { background: rgba(232,93,32,0.12);  color: var(--accent); border: 1px solid rgba(232,93,32,0.25); }
+.band-C { background: rgba(100,140,220,0.12); color: #3a6fcf; border: 1px solid rgba(100,140,220,0.25); }
+.band-D { background: rgba(160,160,160,0.12); color: #666; border: 1px solid rgba(160,160,160,0.25); }
+
+/* ── Goal card ─────────────────────────────────────────── */
+.goal-form { display: flex; gap: 8px; margin-top: 12px; }
+.goal-form input {
+  flex: 1;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font-size: 0.92rem;
+  font-family: inherit;
+  background: var(--bg-surface);
+  color: var(--text);
+  transition: border-color 150ms;
+}
+.goal-form input:focus { outline: none; border-color: var(--accent); }
+
+.goal-gap { margin-top: 14px; font-size: 0.88rem; color: var(--text-secondary); }
+.goal-gap strong { color: var(--text); font-size: 1.05rem; }
+
+.goal-progress-wrap {
+  margin-top: 12px;
+  height: 8px;
+  background: var(--bg-surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.goal-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #ffab5e);
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+.goal-note { margin-top: 7px; font-size: 0.73rem; color: var(--text-secondary); }
+
+/* ── History chart ─────────────────────────────────────── */
+.chart-svg { width: 100%; height: auto; display: block; }
+.chart-wrap { position: relative; }
+.hist-pt { cursor: pointer; }
+.chart-sparse {
+  margin: 0 0 10px;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+}
+.chart-tip {
+  position: absolute;
+  pointer-events: none;
+  background: #fff;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  color: var(--text);
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  transition: opacity 120ms;
+  white-space: nowrap;
+  z-index: 5;
+}
+.chart-tip.on { opacity: 1; }
+.chart-tip strong { display: block; color: var(--accent); margin-bottom: 2px; }
+.chart-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+}
+.chart-empty a { color: var(--accent); text-decoration: none; }
+.chart-empty a:hover { text-decoration: underline; }
+
+/* ── Race log ──────────────────────────────────────────── */
+.log-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  gap: 8px;
+  margin-bottom: 16px;
+  align-items: end;
+}
+.log-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+.log-form input {
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  font-family: inherit;
+  background: var(--bg-surface);
+  color: var(--text);
+  transition: border-color 150ms;
+}
+.log-form input:focus { outline: none; border-color: var(--accent); }
+
+.log-add-btn {
+  padding: 9px 16px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 150ms;
+  align-self: end;
+}
+.log-add-btn:hover { background: var(--accent-light); }
+
+.delta-pos { color: #e85d20; font-weight: 600; }
+.delta-neg { color: #2d8a4e; font-weight: 600; }
+.log-del-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 120ms, color 120ms;
+}
+.log-del-btn:hover { background: rgba(200,0,0,0.08); color: #c0392b; }
+
+/* ── Data card ─────────────────────────────────────────── */
+.dash-data-card { grid-column: 1 / -1; }
+.data-copy { font-size: 0.82rem; color: var(--text-secondary); margin: 0 0 10px; }
+.data-copy:empty { display: none; }
+.data-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.file-btn { display: inline-flex; align-items: center; }
+.ghost-btn.danger:hover { border-color: var(--danger); color: var(--danger); background: rgba(220,38,38,0.06); }
+.ghost-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.log-actions { white-space: nowrap; }
+.log-anchor-btn {
+  background: none; border: 1px solid var(--line-strong); border-radius: 6px;
+  padding: 3px 8px; font-size: 0.74rem; font-family: inherit; color: var(--text-secondary);
+  cursor: pointer; margin-right: 4px; transition: border-color 120ms, color 120ms;
+}
+.log-anchor-btn:hover { border-color: var(--accent); color: var(--accent); }
+.log-anchor-btn:disabled { color: #2d8a4e; border-color: rgba(45,138,78,0.4); cursor: default; }
+
+/* ── Empty / first-visit state ─────────────────────────── */
+.dash-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-secondary);
+  grid-column: 1 / -1;
+}
+.dash-empty h2 { font-size: 1.4rem; margin-bottom: 10px; color: var(--text); }
+.dash-empty p  { margin-bottom: 22px; max-width: 380px; margin-left: auto; margin-right: auto; line-height: 1.6; }
+.dash-empty a.primary-btn {
+  display: inline-block;
+  text-decoration: none;
+  padding: 11px 26px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 0.92rem;
+  transition: background 150ms;
+}
+.dash-empty a.primary-btn:hover { background: var(--accent-light); }

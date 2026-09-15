@@ -1,0 +1,5 @@
+# Not needed at runtime — originals kept for reference
+_archive
+.claude
+.agents
+skills-lock.json

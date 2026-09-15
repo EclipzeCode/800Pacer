@@ -1,4 +1,4 @@
-/* =============================================================
+﻿/* =============================================================
    800m Race Strategy Simulator — script.js
 
    Architecture
@@ -67,42 +67,9 @@ const splitMarkers     = document.getElementById("splitMarkers");
 const runnerDot        = document.getElementById("runnerDot");
 const runnerPulse      = document.getElementById("runnerPulse");
 const replayBtn        = document.getElementById("replayButton");
-const runnerPrice      = document.getElementById("runnerPrice");
-const coachPrice       = document.getElementById("coachPrice");
-const runnerCta        = document.getElementById("runnerCta");
-const coachCta         = document.getElementById("coachCta");
-const teamCta          = document.getElementById("teamCta");
-const offerHeadline    = document.getElementById("offerHeadline");
-const offerSummary     = document.getElementById("offerSummary");
-const pricingNote      = document.getElementById("pricingNote");
 
 let simulationState = null;
 let replayTimers    = [];
-
-const MONETIZATION_CONFIG = {
-  contactEmail: "you@example.com",
-  runnerPro: {
-    name: "Runner Pro",
-    price: "$12/mo",
-    checkoutUrl: "",
-    buttonLabel: "Join Pro Waitlist",
-    subject: "Runner Pro early access",
-  },
-  coachPack: {
-    name: "Coach Pack",
-    price: "$49/mo",
-    checkoutUrl: "",
-    buttonLabel: "Coach Pack",
-    subject: "Coach Pack demo request",
-  },
-  teamLicensing: {
-    name: "Team Licensing",
-    price: "Custom",
-    inquiryUrl: "",
-    buttonLabel: "Team Licensing",
-    subject: "Team licensing inquiry",
-  },
-};
 
 /* ═══════════════════════════════════════════════════════════
    1. INPUT PARSING & VALIDATION
@@ -116,31 +83,58 @@ const BOUNDS = {
 };
 
 /**
- * Parse "m:ss" or plain-seconds string → seconds, or null.
+ * Parse "m:ss(.x)" or plain-seconds string → seconds, or null.
+ * Strict: rejects empty parts, negative values, and seconds ≥ 60
+ * in m:ss form (so "1:70" and "1:" are no longer silently accepted).
  */
 function parseTime(value) {
   if (!value || !value.trim()) return null;
   const str   = value.trim();
   const parts = str.split(":");
-  const t     = parts.length === 2
-    ? Number(parts[0]) * 60 + Number(parts[1])
-    : Number(str);
-  return isNaN(t) ? null : t;
+  if (parts.length > 2) return null;
+  if (parts.length === 2) {
+    if (!/^\d+$/.test(parts[0]) || !/^\d+(\.\d+)?$/.test(parts[1])) return null;
+    const m = Number(parts[0]), s = Number(parts[1]);
+    if (s >= 60) return null;
+    return m * 60 + s;
+  }
+  if (!/^\d+(\.\d+)?$/.test(str)) return null;
+  return Number(str);
 }
+
+const FIELD_LABEL = { t400: "400m PR", t1600: "1600m PR", t800: "800m time" };
 
 /**
  * Parse and range-check one time input.
- * Returns seconds if valid, null if absent or implausible.
+ * Returns { sec, error, warn } — `sec` is null when absent or invalid.
+ * `warn` flags a value that parsed but probably wasn't what the user
+ * meant (e.g. "428" read as 7:08 instead of 4:28).
  */
-function parseAndValidate(value, key) {
-  const t = parseTime(value);
-  if (t == null) return null;
+function validateTimeInput(value, key) {
+  const raw = (value ?? "").trim();
+  if (!raw) return { sec: null, error: null, warn: null };
+  const t = parseTime(raw);
   const { min, max } = BOUNDS[key];
-  if (t < min || t > max) {
-    console.warn(`[Simulator] ${key} = ${t}s is outside plausible range [${min}, ${max}]. Ignoring.`);
-    return null;
+  if (t == null) {
+    return { sec: null, error: `Enter seconds (e.g. 52.4) or m:ss (e.g. 1:58.0).`, warn: null };
   }
-  return t;
+  if (t < min || t > max) {
+    return {
+      sec: null,
+      error: `${FIELD_LABEL[key]} must be between ${formatTime(min)} and ${formatTime(max)} (read as ${formatTime(t)}).`,
+      warn: null,
+    };
+  }
+  let warn = null;
+  if (!raw.includes(":") && t >= 100) {
+    warn = `Read as ${formatTime(t)} — use m:ss if you meant ${Math.floor(t / 100)}:${String(t % 100).padStart(2, "0")}.`;
+  }
+  return { sec: t, error: null, warn };
+}
+
+/** Backwards-compatible wrapper: seconds or null. */
+function parseAndValidate(value, key) {
+  return validateTimeInput(value, key).sec;
 }
 
 function formatTime(sec) {
@@ -148,6 +142,12 @@ function formatTime(sec) {
   const m = Math.floor(sec / 60);
   const s = (sec % 60).toFixed(2).padStart(5, "0");
   return `${m}:${s}`;
+}
+
+/** Format for re-populating an input: "52.40" under a minute, else m:ss. */
+function formatInput(sec) {
+  if (sec == null || isNaN(sec)) return "";
+  return sec < 60 ? sec.toFixed(2).replace(/\.?0+$/, "") : formatTime(sec);
 }
 
 function formatShort(sec) {
@@ -295,7 +295,8 @@ function computeEnsemble(riegel, cs, blend, vdot, pr800, profile, sex, t400, t16
   let inferredProfile = profile;
   if (t400 && t1600) {
     const ratio    = (400 / t400) / (1600 / t1600);
-    inferredProfile = ratio > 1.55 ? "speed" : ratio < 1.45 ? "endurance" : "balanced";
+    // Same cut-offs as the profile dropdown labels (≥1.58 speed, ≤1.47 endurance).
+    inferredProfile = ratio >= 1.58 ? "speed" : ratio <= 1.47 ? "endurance" : "balanced";
   }
   // Agreement between declared and inferred profile modulates
   // trust in profile-sensitive models (Riegel, CS).
@@ -547,8 +548,10 @@ function simulateRace(goalSec, strategy, profile, weightMap) {
 /* ═══════════════════════════════════════════════════════════
    7A. GRAPH RENDERING
 ═══════════════════════════════════════════════════════════ */
+const GRAPH = { W: 520, H: 200, PX: 36, PY: 18 };
+
 function renderGraph(segments, goalSec) {
-  const W = 520, H = 200, PX = 36, PY = 18;
+  const { W, H, PX, PY } = GRAPH;
   const usableW = W - PX * 2;
   const usableH = H - PY * 2;
 
@@ -567,6 +570,16 @@ function renderGraph(segments, goalSec) {
     lbl.textContent = pct + "%";
     graphGrid.appendChild(lbl);
   });
+  // Axis captions
+  [["Fatigue", PX - 4, "end", "rgba(15,138,110,0.8)"], ["s/100m", W - PX + 4, "start", "rgba(37,99,235,0.75)"]]
+    .forEach(([txt, x, anchor, fill]) => {
+      const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      t.setAttribute("x", x); t.setAttribute("y", PY - 6);
+      t.setAttribute("text-anchor", anchor); t.setAttribute("font-size", "7.5");
+      t.setAttribute("fill", fill); t.setAttribute("font-weight", "600");
+      t.textContent = txt;
+      graphGrid.appendChild(t);
+    });
 
   const lapX = PX + usableW * 0.5;
   lapDivider.setAttribute("x1", lapX); lapDivider.setAttribute("x2", lapX);
@@ -600,16 +613,30 @@ function renderGraph(segments, goalSec) {
   fatigueLine.setAttribute("d", fLine);
   fatigueArea.setAttribute("d", fLine + ` L ${fPts[fPts.length - 1].x.toFixed(1)} ${H - PY} L ${fPts[0].x.toFixed(1)} ${H - PY} Z`);
 
-  const maxSplit = Math.max(...segments.map(s => s.segmentSeconds));
-  const minSplit = Math.min(...segments.map(s => s.segmentSeconds));
-  const range    = Math.max(maxSplit - minSplit, 0.3);
-  const pPts     = segments.map((s, i) => ({
+  // Pace series on its own right-hand axis (s / 100m). Plotted so that
+  // HIGHER on the chart = FASTER, which matches the "up is good" intuition.
+  const splitsArr = segments.map(s => s.segmentSeconds);
+  const rawMin = Math.min(...splitsArr), rawMax = Math.max(...splitsArr);
+  const pad    = Math.max((rawMax - rawMin) * 0.25, 0.25);
+  const pMin   = rawMin - pad, pMax = rawMax + pad;      // s/100m
+  const paceY  = sec => PY + usableH * ((sec - pMin) / (pMax - pMin));  // slower → lower
+  const pPts   = segments.map((s, i) => ({
     x: PX + usableW * ((i + 1) / segments.length),
-    y: PY + usableH - ((s.segmentSeconds - minSplit) / range) * usableH * 0.75 - usableH * 0.1,
+    y: paceY(s.segmentSeconds),
   }));
   const pLine = pPts.map((p, i) => `${i ? "L" : "M"}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
   paceLine.setAttribute("d", pLine);
   paceArea.setAttribute("d", pLine + ` L ${pPts[pPts.length - 1].x.toFixed(1)} ${H - PY} L ${pPts[0].x.toFixed(1)} ${H - PY} Z`);
+
+  // Right axis ticks: fastest at top, slowest at bottom.
+  [pMin, (pMin + pMax) / 2, pMax].forEach(sec => {
+    const lbl = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    lbl.setAttribute("x", W - PX + 4); lbl.setAttribute("y", paceY(sec) + 3);
+    lbl.setAttribute("text-anchor", "start"); lbl.setAttribute("font-size", "8");
+    lbl.setAttribute("fill", "rgba(37,99,235,0.75)");
+    lbl.textContent = sec.toFixed(1) + "s";
+    graphGrid.appendChild(lbl);
+  });
 
   fPts.forEach((p, i) => {
     const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
@@ -618,6 +645,15 @@ function renderGraph(segments, goalSec) {
     c.dataset.index = i;
     graphPoints.appendChild(c);
   });
+  pPts.forEach((p, i) => {
+    const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    c.setAttribute("cx", p.x.toFixed(1)); c.setAttribute("cy", p.y.toFixed(1));
+    c.setAttribute("r", "3"); c.setAttribute("class", "graph-point pace");
+    c.dataset.index = i;
+    graphPoints.appendChild(c);
+  });
+
+  return { fPts, pPts };
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -629,7 +665,8 @@ function renderTable(segments) {
   segments.forEach((s, i) => {
     const diff    = s.segmentSeconds - avgSplit;
     const diffStr = (diff >= 0 ? "+" : "") + diff.toFixed(2) + "s";
-    const colour  = diff < -0.25 ? "color:#3b6fe8" : diff > 0.25 ? "color:#d97706" : "";
+    // Green = faster than average, orange = slower (same semantics as the other pages).
+    const colour  = diff < -0.25 ? "color:var(--positive)" : diff > 0.25 ? "color:var(--warning)" : "";
     const row     = document.createElement("tr");
     if (i === 3) row.classList.add("lap-boundary");
     row.innerHTML = `
@@ -689,8 +726,8 @@ function renderSplitMarkers(segments) {
     const loy = +((dy / d) * 24 + 4).toFixed(1);
 
     const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-    bg.setAttribute("x", (lox - 14).toFixed(1)); bg.setAttribute("y", (loy - 9).toFixed(1));
-    bg.setAttribute("width", "28"); bg.setAttribute("height", "11"); bg.setAttribute("rx", "3");
+    bg.setAttribute("x", (lox - 21).toFixed(1)); bg.setAttribute("y", (loy - 9).toFixed(1));
+    bg.setAttribute("width", "42"); bg.setAttribute("height", "11"); bg.setAttribute("rx", "3");
     bg.setAttribute("fill", "rgba(255,250,245,0.88)"); bg.setAttribute("class", "marker-bg");
     g.appendChild(bg);
 
@@ -700,7 +737,10 @@ function renderSplitMarkers(segments) {
     lbl.setAttribute("fill", "rgba(120,50,10,0.92)");
     lbl.setAttribute("font-family", "Bahnschrift,sans-serif"); lbl.setAttribute("font-weight", "700");
     lbl.setAttribute("class", "split-label");
-    lbl.textContent = seg.dist + "m";
+    // Both laps pass this marker: "100 / 500". The active lap's number is
+    // emphasised by highlightMarker(); nothing is ever overwritten.
+    const lap2Seg = segments[i + 4];
+    lbl.innerHTML = `<tspan class="lbl-l1">${seg.dist}</tspan><tspan class="lbl-sep"> / </tspan><tspan class="lbl-l2">${lap2Seg ? lap2Seg.dist : ""}</tspan>`;
     g.appendChild(lbl);
 
     splitMarkers.appendChild(g);
@@ -708,64 +748,66 @@ function renderSplitMarkers(segments) {
 }
 
 /* ── Highlight active marker ────────────────────────────── */
+const MARKER_COLORS = {
+  1: { active: "#c94a10", ring: "rgba(200,74,16,0.25)",  passed: "rgba(180,70,10,0.30)"  },
+  2: { active: "#c9820a", ring: "rgba(200,130,10,0.25)", passed: "rgba(180,120,10,0.30)" },
+};
+
+function setLapIndicator(text) {
+  const el = document.getElementById("lapIndicator");
+  if (el) el.textContent = text;
+}
+
+/**
+ * Reset every marker to its idle state. `segIndex` = -1 means "before start".
+ * Markers are shared by both laps; the label's tspans are emphasised per lap.
+ */
 function highlightMarker(segIndex) {
   if (!simulationState) return;
-  const seg      = simulationState[segIndex];
-  const posIndex = seg.lap === 1 ? segIndex : segIndex - 4;
-  const isLap2   = seg.lap === 2;
+  const seg    = segIndex >= 0 ? simulationState[segIndex] : null;
+  const lap    = seg ? seg.lap : 1;
+  const posIdx = seg ? (lap === 1 ? segIndex : segIndex - 4) : -1;
 
   document.querySelectorAll(".marker-group").forEach(g => {
     const pi    = Number(g.dataset.posIndex);
     const dot   = g.querySelector(".split-marker");
-    const lbl   = g.querySelector(".split-label");
     const pulse = g.querySelector(".split-pulse");
+    const l1    = g.querySelector(".lbl-l1");
+    const l2    = g.querySelector(".lbl-l2");
+    const c     = MARKER_COLORS[lap];
+    const passedThisLap = pi < posIdx;
+    const isActive      = pi === posIdx;
 
-    if (pi === posIndex) {
-      const activeColor = isLap2 ? "#c9820a" : "#c94a10";
-      const activeRing  = isLap2 ? "rgba(200,130,10,0.25)" : "rgba(200,74,16,0.25)";
-      dot.setAttribute("fill", activeColor); dot.setAttribute("stroke", activeColor);
+    if (isActive) {
+      dot.setAttribute("fill", c.active); dot.setAttribute("stroke", c.active);
       dot.setAttribute("r", "7"); dot.setAttribute("stroke-width", "2.5");
-      pulse.setAttribute("stroke", activeRing);
-      const newText  = seg.dist + "m";
-      const newColor = isLap2 ? "rgba(100,60,5,0.90)" : "rgba(120,50,10,0.92)";
-      if (lbl && lbl.textContent !== newText) {
-        lbl.style.opacity = "0";
-        setTimeout(() => { lbl.textContent = newText; lbl.setAttribute("fill", newColor); lbl.style.opacity = "1"; }, 150);
-      } else if (lbl) { lbl.setAttribute("fill", newColor); }
+      pulse.setAttribute("stroke", c.ring);
     } else {
-      const thisPosSegIndex = isLap2 ? pi + 4 : pi;
-      const passed          = thisPosSegIndex < segIndex;
+      const done = passedThisLap || lap === 2;   // lap-1 markers are all "done" in lap 2
+      dot.setAttribute("fill", done ? c.passed : "rgba(180,70,10,0.30)");
+      dot.setAttribute("stroke", done ? c.active : "#c94a10");
       dot.setAttribute("r", "5"); dot.setAttribute("stroke-width", "1.5");
-
-      if (isLap2 && passed) {
-        dot.setAttribute("fill", "rgba(180,120,10,0.30)"); dot.setAttribute("stroke", "#c9820a");
-        const newText = simulationState[pi + 4]?.dist + "m";
-        if (lbl && newText && lbl.textContent !== newText) {
-          lbl.style.opacity = "0";
-          setTimeout(() => { lbl.textContent = newText; lbl.setAttribute("fill", "rgba(100,60,5,0.80)"); lbl.style.opacity = "1"; }, 150);
-        } else if (lbl) { lbl.setAttribute("fill", "rgba(100,60,5,0.80)"); }
-        if (pulse) pulse.setAttribute("stroke", "rgba(200,130,10,0.12)");
-      } else {
-        dot.setAttribute("fill", "rgba(180,70,10,0.30)"); dot.setAttribute("stroke", "#c94a10");
-        const baseIndex = isLap2 ? pi + 4 : pi;
-        const newText   = simulationState[baseIndex]?.dist + "m";
-        if (lbl && newText && lbl.textContent !== newText) {
-          lbl.style.opacity = "0";
-          setTimeout(() => { lbl.textContent = newText; lbl.setAttribute("fill", "rgba(120,50,10,0.80)"); lbl.style.opacity = "1"; }, 150);
-        } else if (lbl) { lbl.setAttribute("fill", "rgba(120,50,10,0.80)"); }
-        if (pulse) pulse.setAttribute("stroke", "rgba(200,80,20,0.12)");
-      }
+      pulse.setAttribute("stroke", "rgba(200,80,20,0.12)");
+    }
+    // Emphasise the current lap's number in the "100 / 500" label.
+    if (l1 && l2) {
+      l1.setAttribute("fill", lap === 1 ? "rgba(120,50,10,0.95)" : "rgba(120,50,10,0.45)");
+      l2.setAttribute("fill", lap === 2 ? "rgba(100,60,5,0.95)"  : "rgba(100,60,5,0.45)");
+      l1.setAttribute("font-weight", lap === 1 ? "700" : "500");
+      l2.setAttribute("font-weight", lap === 2 ? "700" : "500");
     }
   });
+  setLapIndicator(seg ? (segIndex === simulationState.length - 1 ? "FINISH" : `LAP ${lap} · ${seg.dist}m`) : "800m · 2 LAPS");
 }
 
 /* ═══════════════════════════════════════════════════════════
    7D. RUNNER ANIMATION
 ═══════════════════════════════════════════════════════════ */
 let runnerRafId = null;
+let trackLen    = 0;   // cached; the path never changes
 
 function placeRunner(prog) {
-  const len = trackPath.getTotalLength();
+  const len = trackLen || (trackLen = trackPath.getTotalLength());
   const pt  = trackPath.getPointAtLength(len * Math.min(Math.max(prog, 0), 0.9999));
   runnerDot.setAttribute("cx",   pt.x); runnerDot.setAttribute("cy",   pt.y);
   runnerPulse.setAttribute("cx", pt.x); runnerPulse.setAttribute("cy", pt.y);
@@ -820,23 +862,17 @@ function startReplay() {
   clearReplay();
   placeRunner(0.001);
 
-  document.querySelectorAll(".marker-group").forEach(g => {
-    const pi    = Number(g.dataset.posIndex);
-    const lbl   = g.querySelector(".split-label");
-    const dot   = g.querySelector(".split-marker");
-    const pulse = g.querySelector(".split-pulse");
-    if (lbl && simulationState[pi]) lbl.textContent = simulationState[pi].dist + "m";
-    if (lbl)   lbl.setAttribute("fill", "rgba(120,50,10,0.80)");
-    if (dot)   { dot.setAttribute("fill", "rgba(180,70,10,0.30)"); dot.setAttribute("stroke", "#c94a10"); dot.setAttribute("r", "5"); dot.setAttribute("stroke-width", "1.5"); }
-    if (pulse) pulse.setAttribute("stroke", "rgba(200,80,20,0.12)");
-  });
+  highlightMarker(-1);
 
   elapsedMetric.textContent    = formatTime(0);
   fatigueMetric.textContent    = "0%";
   lapMetric.textContent        = "Lap 1";
-  projectionMetric.textContent = formatTime(simulationState[simulationState.length - 1].elapsed);
+  projectionMetric.textContent = "—";
 
-  const segDuration = 700;
+  // Honour reduced-motion: step through the race quickly with no easing time.
+  const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  const segDuration  = reduceMotion ? 120 : 700;
+  const lastIndex    = simulationState.length - 1;
 
   simulationState.forEach((seg, i) => {
     const prevSeg     = simulationState[i - 1] ?? null;
@@ -844,9 +880,12 @@ function startReplay() {
     const thisProg    = seg.ovalProgress;
     const fromElapsed = prevSeg ? prevSeg.elapsed : 0;
     const fromFatigue = prevSeg ? prevSeg.fatigue : 0;
+    // Finish time if the race continued at this segment's average pace so far.
+    const fromProj    = prevSeg ? prevSeg.elapsed / prevSeg.dist * 800 : seg.elapsed / seg.dist * 800;
+    const toProj      = seg.elapsed / seg.dist * 800;
 
     const id = setTimeout(() => {
-      lapMetric.textContent = `Lap ${seg.lap}`;
+      lapMetric.textContent = i === lastIndex ? "Finished" : `Lap ${seg.lap}`;
       highlightMarker(i);
       document.querySelectorAll("#splitTableBody tr").forEach((r, ri) => {
         r.classList.toggle("active-row", ri === i);
@@ -854,6 +893,9 @@ function startReplay() {
 
       cancelCounters.push(animateValue(fromElapsed, seg.elapsed, segDuration * 0.88,
         val => { elapsedMetric.textContent = formatTime(val); }));
+
+      cancelCounters.push(animateValue(fromProj, toProj, segDuration * 0.88,
+        val => { projectionMetric.textContent = formatTime(val); }));
 
       cancelCounters.push(animateValue(fromFatigue, seg.fatigue, segDuration * 0.88,
         val => { fatigueMetric.textContent = Math.round(val) + "%"; },
@@ -893,132 +935,21 @@ function updateModelTiles(riegel, cs, blend, vdot, ens) {
   if (vdotVal) vdotVal.textContent = vdot != null ? formatTime(vdot) : "—";
   if (ens) {
     ensembleVal.textContent = formatTime(ens.mean);
-    ensembleCI.textContent  = `±${ens.spreadRange.toFixed(1)}s`;
+    ensembleCI.textContent  = `est. range ±${ens.spreadRange.toFixed(1)}s`;
   }
-}
-
-/* ── Monetization helpers ──────────────────────────────── */
-function hasConfiguredUrl(value) {
-  return typeof value === "string" && /^https?:\/\//i.test(value.trim());
-}
-
-function hasRealContactEmail(value) {
-  return typeof value === "string"
-    && !!value.trim()
-    && !/@example\.com$/i.test(value.trim());
-}
-
-function setPlanContent() {
-  if (runnerPrice) runnerPrice.textContent = MONETIZATION_CONFIG.runnerPro.price;
-  if (coachPrice)  coachPrice.textContent  = MONETIZATION_CONFIG.coachPack.price;
-  if (runnerCta)   runnerCta.textContent   = MONETIZATION_CONFIG.runnerPro.buttonLabel;
-  if (coachCta)    coachCta.textContent    = MONETIZATION_CONFIG.coachPack.buttonLabel;
-  if (teamCta)     teamCta.textContent     = MONETIZATION_CONFIG.teamLicensing.buttonLabel;
-}
-
-function updatePricingNote() {
-  if (!pricingNote) return;
-
-  const linksLive = [
-    MONETIZATION_CONFIG.runnerPro.checkoutUrl,
-    MONETIZATION_CONFIG.coachPack.checkoutUrl,
-    MONETIZATION_CONFIG.teamLicensing.inquiryUrl,
-  ].filter(hasConfiguredUrl).length;
-
-  if (linksLive === 3) {
-    pricingNote.textContent = "Checkout and inquiry links are live.";
-    return;
-  }
-
-  if (hasRealContactEmail(MONETIZATION_CONFIG.contactEmail)) {
-    pricingNote.innerHTML = `Email fallback is active at <a href="mailto:${MONETIZATION_CONFIG.contactEmail}">${MONETIZATION_CONFIG.contactEmail}</a> until checkout links are live.`;
-    return;
-  }
-
-  pricingNote.textContent = "Replace the placeholder email and add checkout links in script.js before sending paid traffic here.";
-}
-
-function buildWaitlistBody(planName) {
-  return [
-    `Hi, I'm interested in ${planName}.`,
-    "",
-    "What I want to use it for:",
-    "- Athlete self-serve",
-    "- Coach workflow",
-    "- Team or club licensing",
-    "",
-    "Biggest feature I want next:",
-    "- Saved history",
-    "- Strategy comparisons",
-    "- Reports / exports",
-    "- Team roster tools",
-  ].join("\n");
-}
-
-function openCheckoutOrContact(planKey) {
-  const plan = MONETIZATION_CONFIG[planKey];
-  if (!plan) return;
-
-  const targetUrl = plan.checkoutUrl || plan.inquiryUrl;
-  if (hasConfiguredUrl(targetUrl)) {
-    window.open(targetUrl, "_blank", "noopener");
-    return;
-  }
-
-  if (hasRealContactEmail(MONETIZATION_CONFIG.contactEmail)) {
-    const subject = encodeURIComponent(plan.subject || `${plan.name} inquiry`);
-    const body    = encodeURIComponent(buildWaitlistBody(plan.name));
-    window.location.href = `mailto:${MONETIZATION_CONFIG.contactEmail}?subject=${subject}&body=${body}`;
-    return;
-  }
-
-  openInfoModal({
-    title: `${plan.name} setup`,
-    body: `
-      <p>Add a real contact email and a checkout or inquiry URL in <strong>script.js</strong> to activate this CTA.</p>
-      <ul>
-        <li><strong>Runner Pro / Coach Pack</strong> — add a Stripe Payment Link to <em>checkoutUrl</em>.</li>
-        <li><strong>Team Licensing</strong> — add a Calendly, Typeform, or sales page URL to <em>inquiryUrl</em>.</li>
-      </ul>
-      <p>Until then, this page is ready for waitlist-style monetization once those placeholders are replaced.</p>
-    `,
+  // Show each model's share of the ensemble so the final number is explainable.
+  const wm = ens?.weightMap ?? {};
+  [["riegel", riegel], ["cs", cs], ["blend", blend], ["vdot", vdot]].forEach(([key, val]) => {
+    const el = document.getElementById(key + "W");
+    if (!el) return;
+    if (val == null)        { el.textContent = key === "cs" || key === "vdot" ? "needs 1600m PR" : ""; el.className = "tile-weight muted"; return; }
+    const pct = Math.round((wm[key] ?? 0) * 100);
+    el.textContent = `${pct}% weight`;
+    el.className = "tile-weight";
+    el.style.setProperty("--w", pct + "%");
   });
-}
-
-function getOfferCopy({ predictedTime, t1600, t800, strategy }) {
-  const projection = formatTime(predictedTime);
-  const strategyLabel = {
-    even: "even-split",
-    negative: "negative-split",
-    frontLoaded: "front-loaded",
-    sitAndKick: "sit-and-kick",
-  }[strategy] ?? "race-plan";
-
-  if (!t800) {
-    return {
-      headline: "Unlock Runner Pro",
-      summary: `Save this ${projection} projection, log your actual 800m races, and calibrate future plans from real outcomes instead of one-time estimates.`,
-    };
-  }
-
-  if (!t1600) {
-    return {
-      headline: "Unlock Runner Pro",
-      summary: `Add aerobic benchmarks, compare each strategy around ${projection}, and export a pacing card instead of rebuilding this forecast from scratch.`,
-    };
-  }
-
-  return {
-    headline: "Unlock Runner Pro",
-    summary: `Save this ${strategyLabel} setup, compare it against the other three race shapes, and build a season-long library of pacing plans around ${projection}.`,
-  };
-}
-
-function updateOfferCopy(context) {
-  if (!offerHeadline || !offerSummary) return;
-  const copy = getOfferCopy(context);
-  offerHeadline.textContent = copy.headline;
-  offerSummary.textContent  = copy.summary;
+  const priorEl = document.getElementById("priorW");
+  if (priorEl) priorEl.textContent = wm.prior != null ? ` · prior 800m ${Math.round(wm.prior * 100)}%` : "";
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1103,18 +1034,20 @@ The <strong>±Xs</strong> shown below the time reflects how much the individual 
   },
 };
 
-let activeModal = null;
+let activeModal   = null;
+let modalReturnEl = null;   // element to restore focus to on close
 
 function openInfoModal(info) {
   closeModal();
   if (!info) return;
+  modalReturnEl = document.activeElement;
   const formulaBlock = info.formula ? `<p class="modal-formula">${info.formula}</p>` : "";
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay";
   overlay.innerHTML = `
-    <div class="modal-box" role="dialog" aria-modal="true">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modalTitle" tabindex="-1">
       <div class="modal-header">
-        <h3 class="modal-title">${info.title}</h3>
+        <h3 class="modal-title" id="modalTitle">${info.title}</h3>
         <button class="modal-close" aria-label="Close">✕</button>
       </div>
       ${formulaBlock}
@@ -1124,9 +1057,13 @@ function openInfoModal(info) {
   overlay.addEventListener("click", e => { if (e.target === overlay) closeModal(); });
   overlay.querySelector(".modal-close").addEventListener("click", closeModal);
   document.body.appendChild(overlay);
-  requestAnimationFrame(() => overlay.classList.add("modal-visible"));
+  document.body.style.overflow = "hidden";
+  requestAnimationFrame(() => {
+    overlay.classList.add("modal-visible");
+    overlay.querySelector(".modal-box").focus();
+  });
   activeModal = overlay;
-  document.addEventListener("keydown", handleEscape);
+  document.addEventListener("keydown", handleModalKeys);
 }
 
 function openModal(key) {
@@ -1137,19 +1074,38 @@ function closeModal() {
   if (!activeModal) return;
   const el = activeModal;
   activeModal = null;
-  document.removeEventListener("keydown", handleEscape);
+  document.removeEventListener("keydown", handleModalKeys);
+  document.body.style.overflow = "";
   el.classList.remove("modal-visible");
   el.addEventListener("transitionend", () => el.remove(), { once: true });
   setTimeout(() => el.remove(), 350);
+  if (modalReturnEl && typeof modalReturnEl.focus === "function") modalReturnEl.focus();
+  modalReturnEl = null;
 }
 
-function handleEscape(e) { if (e.key === "Escape") closeModal(); }
+/* Escape closes; Tab is trapped inside the dialog. */
+function handleModalKeys(e) {
+  if (e.key === "Escape") { closeModal(); return; }
+  if (e.key !== "Tab" || !activeModal) return;
+  const focusable = activeModal.querySelectorAll(
+    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+  );
+  if (!focusable.length) return;
+  const first = focusable[0], last = focusable[focusable.length - 1];
+  if (e.shiftKey && (document.activeElement === first || document.activeElement === activeModal.querySelector(".modal-box"))) {
+    e.preventDefault(); last.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault(); first.focus();
+  }
+}
 
 /* ── Graph tooltip ──────────────────────────────────────── */
-function attachGraphTooltip(segments) {
+/* Pointer events (mouse + touch + pen). On touch, a tap pins the tooltip
+   until the next tap elsewhere. */
+function attachGraphTooltip(segments, pts) {
   const svg     = document.getElementById("fatigueGraph");
   const tooltip = document.getElementById("graphTooltip");
-  if (!tooltip) return;
+  if (!tooltip || !pts) return;
 
   let hitGroup = document.getElementById("graphHitTargets");
   if (!hitGroup) {
@@ -1159,37 +1115,123 @@ function attachGraphTooltip(segments) {
   }
   hitGroup.innerHTML = "";
 
-  const W = 520, H = 200, PX = 36, PY = 18;
-  const usableW = W - PX * 2, usableH = H - PY * 2;
+  let pinned = false;
+
+  function show(s, evt) {
+    tooltip.innerHTML = `
+      <span class="tt-dist">${s.dist}m — Lap ${s.lap}</span>
+      <span class="tt-row"><span>Split</span><strong>${s.segmentSeconds.toFixed(2)}s</strong></span>
+      <span class="tt-row"><span>Elapsed</span><strong>${formatTime(s.elapsed)}</strong></span>
+      <span class="tt-row"><span>Fatigue index</span><strong>${s.fatigue}%</strong></span>
+    `;
+    tooltip.classList.add("tt-visible");
+    positionTooltip(evt);
+  }
+  function hide() { if (!pinned) tooltip.classList.remove("tt-visible"); }
 
   segments.forEach((s, i) => {
-    const cx  = PX + usableW * ((i + 1) / segments.length);
-    const cy  = PY + usableH - (s.fatigue / 100) * usableH;
-    const hit = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-    hit.setAttribute("cx", cx); hit.setAttribute("cy", cy);
-    hit.setAttribute("r", "14"); hit.setAttribute("fill", "transparent");
-    hit.style.cursor = "crosshair";
-    hit.addEventListener("mouseenter", evt => {
-      tooltip.innerHTML = `
-        <span class="tt-dist">${s.dist}m — Lap ${s.lap}</span>
-        <span class="tt-row"><span>Fatigue index</span><strong>${s.fatigue}%</strong></span>
-        <span class="tt-row"><span>Split</span><strong>${s.segmentSeconds.toFixed(2)}s</strong></span>
-        <span class="tt-row"><span>Elapsed</span><strong>${formatTime(s.elapsed)}</strong></span>
-      `;
-      tooltip.classList.add("tt-visible");
-      positionTooltip(evt);
+    [pts.fPts[i], pts.pPts[i]].forEach(p => {
+      const hit = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      hit.setAttribute("cx", p.x); hit.setAttribute("cy", p.y);
+      hit.setAttribute("r", "14"); hit.setAttribute("fill", "transparent");
+      hit.style.cursor = "crosshair";
+      hit.addEventListener("pointerenter", evt => { if (evt.pointerType !== "touch") show(s, evt); });
+      hit.addEventListener("pointermove",  evt => { if (!pinned) positionTooltip(evt); });
+      hit.addEventListener("pointerleave", hide);
+      hit.addEventListener("click", evt => {
+        pinned = !(pinned && tooltip.classList.contains("tt-visible") && tooltip.dataset.idx === String(i));
+        tooltip.dataset.idx = i;
+        if (pinned) show(s, evt); else tooltip.classList.remove("tt-visible");
+        evt.stopPropagation();
+      });
+      hitGroup.appendChild(hit);
     });
-    hit.addEventListener("mousemove", positionTooltip);
-    hit.addEventListener("mouseleave", () => tooltip.classList.remove("tt-visible"));
-    hitGroup.appendChild(hit);
   });
+  document.addEventListener("click", () => { pinned = false; tooltip.classList.remove("tt-visible"); }, { passive: true });
 
   function positionTooltip(evt) {
-    const rect = document.getElementById("graph-card-wrap")?.getBoundingClientRect()
-                 ?? document.body.getBoundingClientRect();
-    tooltip.style.left = (evt.clientX - rect.left + 12) + "px";
-    tooltip.style.top  = (evt.clientY - rect.top  - 10) + "px";
+    const wrap = document.getElementById("graph-card-wrap");
+    const rect = wrap?.getBoundingClientRect() ?? document.body.getBoundingClientRect();
+    let x = evt.clientX - rect.left + 12;
+    const y = evt.clientY - rect.top - 10;
+    // Keep the tooltip inside the card on narrow screens.
+    const ttW = tooltip.offsetWidth || 160;
+    if (x + ttW > rect.width) x = Math.max(0, evt.clientX - rect.left - ttW - 12);
+    tooltip.style.left = x + "px";
+    tooltip.style.top  = y + "px";
   }
+}
+
+/* ── Strategy comparison ────────────────────────────────── */
+const STRATEGY_LABELS = { even: "Even", negative: "Negative", frontLoaded: "Front Loaded", sitAndKick: "Sit & Kick" };
+const STRATEGY_COLORS = { even: "#3b6fe8", negative: "#e85d20", frontLoaded: "#c9820a", sitAndKick: "#16a34a" };
+
+/**
+ * Overlay all four strategies' 100m splits for the same predicted total and
+ * list lap splits + ratio. Clicking a row or line switches the active strategy.
+ */
+function renderStrategyComparison(goalSec, profile, activeStrategy) {
+  const svg   = document.getElementById("compareGraph");
+  const tbody = document.getElementById("compareTableBody");
+  if (!svg || !tbody) return;
+
+  const keys = Object.keys(STRATEGY_LABELS);
+  const data = keys.map(k => {
+    const mults  = getStrategyMultipliers(k, profile);
+    const splits = mults.map(m => goalSec / 8 * m);
+    const l1 = splits.slice(0, 4).reduce((a, b) => a + b, 0);
+    const l2 = splits.slice(4).reduce((a, b) => a + b, 0);
+    return { key: k, splits, l1, l2, ratio: l2 / l1, first200: splits[0] + splits[1], last200: splits[6] + splits[7] };
+  });
+
+  const W = 520, H = 170, PX = 36, PY = 18, usableW = W - PX * 2, usableH = H - PY * 2;
+  const all  = data.flatMap(d => d.splits);
+  const pad  = Math.max((Math.max(...all) - Math.min(...all)) * 0.2, 0.2);
+  const pMin = Math.min(...all) - pad, pMax = Math.max(...all) + pad;
+  const x = i => PX + usableW * (i / 7);
+  const y = sec => PY + usableH * ((sec - pMin) / (pMax - pMin));   // higher = faster
+
+  const grid = [0, 0.5, 1].map(f => {
+    const sec = pMin + (pMax - pMin) * f;
+    const yy  = y(sec).toFixed(1);
+    return `<line x1="${PX}" x2="${W - PX}" y1="${yy}" y2="${yy}" class="graph-grid-line"/>` +
+           `<text x="${PX - 4}" y="${(y(sec) + 3).toFixed(1)}" text-anchor="end" font-size="8" fill="rgba(74,82,102,0.6)">${sec.toFixed(1)}s</text>`;
+  }).join("");
+  const xLabels = Array.from({ length: 8 }, (_, i) =>
+    `<text x="${x(i).toFixed(1)}" y="${H - 3}" text-anchor="middle" font-size="8" fill="rgba(74,82,102,0.55)">${(i + 1) * 100}m</text>`).join("");
+  const lx = x(3.5).toFixed(1);
+  const lapLine = `<line x1="${lx}" x2="${lx}" y1="${PY}" y2="${H - PY}" stroke="rgba(0,0,0,0.10)" stroke-width="1.5" stroke-dasharray="4 3"/>`;
+
+  const lines = data.map(d => {
+    const active = d.key === activeStrategy;
+    const pts = d.splits.map((sec, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(sec).toFixed(1)}`).join(" ");
+    return `<path d="${pts}" fill="none" stroke="${STRATEGY_COLORS[d.key]}" stroke-width="${active ? 3 : 1.8}" ` +
+           `stroke-opacity="${active ? 1 : 0.45}" stroke-linejoin="round" stroke-linecap="round" ` +
+           `class="cmp-line" data-strategy="${d.key}"><title>${STRATEGY_LABELS[d.key]}</title></path>`;
+  }).join("");
+
+  svg.innerHTML = grid + lapLine + xLabels + lines;
+
+  tbody.innerHTML = data.map(d => `
+    <tr class="cmp-row${d.key === activeStrategy ? " active-row" : ""}" data-strategy="${d.key}" tabindex="0" role="button" title="Switch to ${STRATEGY_LABELS[d.key]}">
+      <td><span class="cmp-swatch" style="background:${STRATEGY_COLORS[d.key]}"></span>${STRATEGY_LABELS[d.key]}</td>
+      <td>${d.first200.toFixed(1)}s</td>
+      <td>${formatTime(d.l1)}</td>
+      <td>${formatTime(d.l2)}</td>
+      <td>${d.last200.toFixed(1)}s</td>
+      <td>${d.ratio.toFixed(3)}</td>
+    </tr>`).join("");
+
+  const pick = k => {
+    if (!k || k === strategyInput.value) return;
+    strategyInput.value = k;
+    strategyInput.dispatchEvent(new Event("change", { bubbles: true }));
+  };
+  tbody.querySelectorAll(".cmp-row").forEach(r => {
+    r.addEventListener("click", () => pick(r.dataset.strategy));
+    r.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(r.dataset.strategy); } });
+  });
+  svg.querySelectorAll(".cmp-line").forEach(l => l.addEventListener("click", () => pick(l.dataset.strategy)));
 }
 
 /* ── Hero panel ─────────────────────────────────────────── */
@@ -1209,18 +1251,56 @@ function updateHero(strategy, predictedTime) {
 /* ═══════════════════════════════════════════════════════════
    8B. MAIN — RUN SIMULATION
 ═══════════════════════════════════════════════════════════ */
-function runSimulation() {
-  const t400     = parseAndValidate(pr400Input.value,  "t400");
-  const t1600    = parseAndValidate(pr1600Input.value, "t1600");
-  const t800     = parseAndValidate(pr800Input.value,  "t800");
+const TIME_FIELDS = [
+  { input: pr400Input,  key: "t400",  msg: document.getElementById("pr400Msg")  },
+  { input: pr1600Input, key: "t1600", msg: document.getElementById("pr1600Msg") },
+  { input: pr800Input,  key: "t800",  msg: document.getElementById("pr800Msg")  },
+];
+
+/** Validate one field, paint its message slot, return the result. */
+function showFieldState(field) {
+  const res = validateTimeInput(field.input.value, field.key);
+  if (field.msg) {
+    field.msg.classList.remove("is-error", "is-warn");
+    if (res.error)      { field.msg.textContent = res.error; field.msg.classList.add("is-error"); }
+    else if (res.warn)  { field.msg.textContent = res.warn;  field.msg.classList.add("is-warn");  }
+    else if (res.sec != null && field.input.value.trim() && !field.input.value.includes(":")) {
+      field.msg.textContent = `= ${formatTime(res.sec)}`;
+    }
+    else field.msg.textContent = "";
+  }
+  field.input.setAttribute("aria-invalid", res.error ? "true" : "false");
+  return res;
+}
+
+/**
+ * @param {{persist?: boolean}} opts
+ *   persist — write athleteProfile + predictionHistory to localStorage.
+ *   Only true on an explicit form submit, never on page load or on
+ *   strategy/sex/profile toggles, so history isn't polluted.
+ */
+function runSimulation({ persist = false } = {}) {
+  const results  = TIME_FIELDS.map(showFieldState);
+  const [r400, r1600, r800] = results;
+  const t400     = r400.sec;
+  const t1600    = r1600.sec;
+  const t800     = r800.sec;
   const strategy = strategyInput.value;
   const profile  = profileInput.value;
   const sex      = document.getElementById("sex").value;
 
   if (!t400) {
-    alert("Please enter a valid 400m PR (between 40s and 3:00) to run the simulation.");
+    if (!r400.error && TIME_FIELDS[0].msg) {
+      TIME_FIELDS[0].msg.textContent = "A 400m PR is required to run the simulation.";
+      TIME_FIELDS[0].msg.classList.add("is-error");
+      pr400Input.setAttribute("aria-invalid", "true");
+    }
+    pr400Input.focus();
     return;
   }
+  // Any optional field with an error blocks the run so nothing is silently dropped.
+  const firstBad = TIME_FIELDS.find((f, i) => results[i].error);
+  if (firstBad) { firstBad.input.focus(); return; }
 
   const riegel = modelRiegel(t400, profile, sex);
   const cs     = modelCriticalSpeed(t400, t1600);
@@ -1235,22 +1315,104 @@ function runSimulation() {
 
   updateModelTiles(riegel, cs, blend, vdot, ens);
   updateHero(strategy, ens.mean);
-  updateOfferCopy({ predictedTime: ens.mean, t1600, t800, strategy });
   updateLapPills(segments);
-  renderGraph(segments, ens.mean);
-  attachGraphTooltip(segments);
+  const graphPts = renderGraph(segments, ens.mean);
+  attachGraphTooltip(segments, graphPts);
   renderTable(segments);
   renderSplitMarkers(segments);
+  renderStrategyComparison(ens.mean, profile, strategy);
   startReplay();
 
-  // Persist to localStorage for Dashboard / Training pages.
+  // Persist to localStorage for Dashboard / Training pages — explicit submit only.
+  if (!persist) return;
   try {
     localStorage.setItem("athleteProfile", JSON.stringify({
-      t400, t1600, t800, profile, sex, savedAt: Date.now(),
+      t400, t1600, t800, profile, sex, strategy, savedAt: Date.now(),
     }));
+    localStorage.removeItem("formDraft");   // submitted -> draft no longer needed
     const hist = JSON.parse(localStorage.getItem("predictionHistory") || "[]");
-    hist.push({ date: Date.now(), predicted: ens.mean, t400, t1600: t1600 ?? null, band: ens.band });
-    localStorage.setItem("predictionHistory", JSON.stringify(hist.slice(-50)));
+    const last = hist[hist.length - 1];
+    const sameInputs = last
+      && last.t400 === t400
+      && (last.t1600 ?? null) === (t1600 ?? null)
+      && (last.t800  ?? null) === (t800  ?? null)
+      && (last.profile ?? profile) === profile
+      && (last.sex ?? sex) === sex
+      && Math.abs(last.predicted - ens.mean) < 0.005;
+    if (!sameInputs) {
+      hist.push({
+        date: Date.now(), predicted: ens.mean, band: ens.band,
+        t400, t1600: t1600 ?? null, t800: t800 ?? null, profile, sex,
+      });
+      localStorage.setItem("predictionHistory", JSON.stringify(hist.slice(-50)));
+    }
+  } catch (_) {}
+}
+
+/**
+ * Re-populate the form. Priority: unsubmitted draft (what the user was
+ * typing last visit) -> saved profile -> placeholder demo values.
+ * Neither path writes history.
+ */
+function prefillFromSavedProfile() {
+  try {
+    const draft = JSON.parse(localStorage.getItem("formDraft"));
+    if (draft && typeof draft === "object") {
+      if (draft.pr400  != null) pr400Input.value  = draft.pr400;
+      if (draft.pr1600 != null) pr1600Input.value = draft.pr1600;
+      if (draft.pr800  != null) pr800Input.value  = draft.pr800;
+      if (draft.profile)  profileInput.value  = draft.profile;
+      if (draft.sex)      document.getElementById("sex").value = draft.sex;
+      if (draft.strategy) strategyInput.value = draft.strategy;
+      return true;
+    }
+    const p = JSON.parse(localStorage.getItem("athleteProfile"));
+    if (!p || !p.t400) return false;
+    pr400Input.value  = formatInput(p.t400);
+    pr1600Input.value = p.t1600 ? formatInput(p.t1600) : "";
+    pr800Input.value  = p.t800  ? formatInput(p.t800)  : "";
+    if (p.profile)  profileInput.value  = p.profile;
+    if (p.sex)      document.getElementById("sex").value = p.sex;
+    if (p.strategy) strategyInput.value = p.strategy;
+    return true;
+  } catch (_) { return false; }
+}
+
+/** Save the raw form state so a returning user finds it as they left it. */
+function saveFormDraft() {
+  try {
+    localStorage.setItem("formDraft", JSON.stringify({
+      pr400: pr400Input.value, pr1600: pr1600Input.value, pr800: pr800Input.value,
+      profile: profileInput.value, sex: document.getElementById("sex").value,
+      strategy: strategyInput.value,
+    }));
+  } catch (_) {}
+}
+
+/**
+ * If the race log holds a result that differs from the current
+ * "Previous 800m" field, offer it as a one-click anchor.
+ */
+function showAnchorHint() {
+  const hintEl = document.getElementById("anchorHint");
+  if (!hintEl) return;
+  hintEl.hidden = true;
+  try {
+    const log = JSON.parse(localStorage.getItem("raceLog") || "[]");
+    if (!log.length) return;
+    const latest  = [...log].sort((a, b) => b.date - a.date)[0];
+    const current = parseTime(pr800Input.value);
+    if (current != null && Math.abs(current - latest.time) < 0.005) return;
+    const when  = new Date(latest.date).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    const venue = latest.venue ? ", " + String(latest.venue).replace(/[<>&"]/g, "") : "";
+    hintEl.innerHTML = `Latest logged race: <strong>${formatTime(latest.time)}</strong> (${when}${venue}). <button type="button" class="link-btn" id="useAnchorBtn">Use as anchor</button>`;
+    hintEl.hidden = false;
+    document.getElementById("useAnchorBtn").addEventListener("click", () => {
+      pr800Input.value = formatInput(latest.time);
+      pr800Input.dispatchEvent(new Event("input", { bubbles: true }));
+      hintEl.hidden = true;
+      runSimulation({ persist: true });
+    });
   } catch (_) {}
 }
 
@@ -1259,28 +1421,37 @@ function runSimulation() {
 ═══════════════════════════════════════════════════════════ */
 document.addEventListener("DOMContentLoaded", () => {
   if (!form) return;   // Guard: only run on index.html which has #simForm
-  setPlanContent();
-  updatePricingNote();
 
-  form.addEventListener("submit", e => { e.preventDefault(); runSimulation(); });
+  form.addEventListener("submit", e => { e.preventDefault(); runSimulation({ persist: true }); });
 
   if (replayBtn) replayBtn.addEventListener("click", startReplay);
-  if (runnerCta) runnerCta.addEventListener("click", () => openCheckoutOrContact("runnerPro"));
-  if (coachCta)  coachCta.addEventListener("click",  () => openCheckoutOrContact("coachPack"));
-  if (teamCta)   teamCta.addEventListener("click",   () => openCheckoutOrContact("teamLicensing"));
+
+  // Live echo / validation as the user types; remember the draft.
+  TIME_FIELDS.forEach(f => f.input.addEventListener("input", () => { showFieldState(f); saveFormDraft(); }));
+  ["sex", "profile", "strategy"].forEach(id => document.getElementById(id).addEventListener("change", saveFormDraft));
 
   strategyInput.addEventListener("change", () => {
     document.body.dataset.strategy = strategyInput.value;
     if (simulationState) runSimulation();
   });
 
-  document.getElementById("sex").addEventListener("change", () => {
-    if (simulationState) runSimulation();
+  ["sex", "profile"].forEach(id => {
+    document.getElementById(id).addEventListener("change", () => {
+      if (simulationState) runSimulation();
+    });
   });
 
   document.querySelectorAll(".model-tile[data-model]").forEach(tile => {
     tile.addEventListener("click", () => openModal(tile.dataset.model));
+    tile.addEventListener("keydown", e => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openModal(tile.dataset.model); }
+    });
   });
 
+  // Initial render: use the saved profile if there is one, otherwise the
+  // placeholder demo values. Neither is written to history.
+  prefillFromSavedProfile();
+  document.body.dataset.strategy = strategyInput.value;
   runSimulation();
+  showAnchorHint();
 });

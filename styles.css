@@ -1,4 +1,4 @@
-/* ═══════════════════════════════════════════════════════════
+﻿/* ═══════════════════════════════════════════════════════════
    800m Race Strategy Simulator — styles.css
    White background · orange track · light fatigue graph
 ═══════════════════════════════════════════════════════════ */
@@ -20,10 +20,14 @@
   --accent-light: #ff7a40;
   --accent-glow:  rgba(232, 93, 32, 0.15);
   --accent-soft:  rgba(232, 93, 32, 0.08);
+  /* Tint/border used by accent-coloured cards so they follow the strategy theme */
+  --accent-tint:   #fff5f0;
+  --accent-tint-2: #fff9f5;
+  --accent-border: rgba(232, 93, 32, 0.22);
 
   /* Graph colours — kept as original teal/blue */
-  --graph-teal:   #2ef2c1;
-  --graph-blue:   #56a8ff;
+  --graph-teal:   #0f8a6e;   /* darkened for contrast on the light graph */
+  --graph-blue:   #2563eb;
 
   --accent-2:     #56a8ff;
 
@@ -49,11 +53,11 @@ html { scroll-behavior: smooth; }
 ═══════════════════════════════════════ */
 
 .header {
-  position: fixed;
+  position: sticky;
   top: 0;
-  left: 0;
   width: 100%;
   padding: 1.2rem 6%;
+  gap: 1rem;
   background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
@@ -120,7 +124,7 @@ html { scroll-behavior: smooth; }
 body {
   margin: 0;
   min-height: 100vh;
-  font-family: "Aptos", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  font-family: "Aptos", "Segoe UI Variable", "Segoe UI", "Inter", system-ui, sans-serif;
   color: var(--text);
   background: var(--bg-base);
 }
@@ -140,14 +144,14 @@ body::before {
   z-index: 1;
   width: min(1320px, calc(100% - 32px));
   margin: 0 auto;
-  padding: 6rem 0 60px;
+  padding: 32px 0 60px;
 }
 
 /* ═══════════════════════════════════════
    TYPOGRAPHY
 ═══════════════════════════════════════ */
 h1, h2, h3, h4 {
-  font-family: "Bahnschrift", "Aptos", system-ui, sans-serif;
+  font-family: "Bahnschrift", "Barlow Semi Condensed", "Aptos", "Inter", system-ui, sans-serif;
   font-weight: 600;
 }
 
@@ -219,13 +223,13 @@ h2 { margin: 0; font-size: 1.05rem; letter-spacing: 0.01em; color: var(--text); 
 .hero-stat-card {
   padding: 28px;
   border-radius: var(--radius-xl);
-  background: linear-gradient(140deg, #fff5f0, #fff9f5);
+  background: linear-gradient(140deg, var(--accent-tint), var(--accent-tint-2));
   display: flex;
   flex-direction: column;
   justify-content: center;
   position: relative;
   overflow: hidden;
-  border-color: rgba(232,93,32,0.18);
+  border-color: var(--accent-border);
 }
 
 .hero-stat-card::before {
@@ -234,7 +238,7 @@ h2 { margin: 0; font-size: 1.05rem; letter-spacing: 0.01em; color: var(--text); 
   bottom: -30px; right: -30px;
   width: 160px; height: 160px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(232,93,32,0.12), transparent 70%);
+  background: radial-gradient(circle, var(--accent-glow), transparent 70%);
 }
 
 .hero-stat-card strong {
@@ -265,6 +269,7 @@ h2 { margin: 0; font-size: 1.05rem; letter-spacing: 0.01em; color: var(--text); 
   border-radius: var(--radius-lg);
   background: var(--bg-base);
   padding: 42px;
+  min-width: 0;
 }
 
 .control-card { grid-column: 1; grid-row: 1; align-self: start; }
@@ -272,6 +277,7 @@ h2 { margin: 0; font-size: 1.05rem; letter-spacing: 0.01em; color: var(--text); 
 .table-card   { grid-column: 1 / -1; grid-row: 2; }
 .model-card   { grid-column: 1; grid-row: 3; }
 .graph-card   { grid-column: 2; grid-row: 3; }
+.compare-card { grid-column: 1 / -1; grid-row: 4; }
 
 .section-heading {
   display: flex;
@@ -300,6 +306,17 @@ h2 { margin: 0; font-size: 1.05rem; letter-spacing: 0.01em; color: var(--text); 
 .field { display: grid; gap: 6px; }
 .field span { font-size: 0.88rem; color: var(--text); font-weight: 500; }
 .field em   { font-style: normal; color: var(--text-dim); font-size: 0.78em; font-weight: 400; }
+
+/* Live echo / validation message under time inputs */
+.field-msg {
+  min-height: 1em;
+  font-size: 0.76rem;
+  line-height: 1.3;
+  color: var(--text-dim);
+}
+.field-msg.is-warn  { color: var(--warning); }
+.field-msg.is-error { color: var(--danger); }
+input[aria-invalid="true"] { border-color: var(--danger) !important; }
 
 input, select, button { font: inherit; }
 
@@ -341,13 +358,13 @@ select:focus {
   flex: 1;
   color: #fff;
   background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
-  box-shadow: 0 4px 14px rgba(232,93,32,0.35);
+  box-shadow: 0 4px 14px var(--accent-glow);
   letter-spacing: 0.02em;
 }
 
 .primary-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(232,93,32,0.45);
+  box-shadow: 0 6px 20px var(--accent-glow);
 }
 
 .ghost-btn {
@@ -390,7 +407,7 @@ select:focus {
 }
 
 /* ═══════════════════════════════════════
-   TRACK — dark stadium backdrop
+   TRACK — white backdrop, orange lane
 ═══════════════════════════════════════ */
 .track-wrap {
   position: relative;
@@ -399,12 +416,12 @@ select:focus {
   border-radius: var(--radius-md);
   background: #ffffff;
   border: 1px solid rgba(200, 121, 60, 0.11);
-  box-shadow: inset 0 1px 6px rgba(0,0,0,0.35), 0 4px 20px #c94a10(0,0,0,0.18);
+  box-shadow: inset 0 1px 6px rgba(0,0,0,0.12), 0 4px 20px rgba(201,74,16,0.12);
 }
 
 .track-svg { width: 100%; height: auto; display: block; }
 
-/* Dark stadium backdrop */
+/* Backdrop */
 .track-backdrop { fill: #ffffff; }
 
 /* Orange gradient lane */
@@ -420,7 +437,9 @@ select:focus {
 
 /* Split markers */
 .split-marker  { cursor: default; }
-.split-label   { pointer-events: none; transition: opacity 200ms ease; }
+.split-label   { pointer-events: none; }
+.split-label tspan { transition: fill 200ms ease; }
+.lbl-sep { fill: rgba(120,50,10,0.35); }
 .marker-group  { cursor: default; }
 .marker-bg     { transition: opacity 200ms ease; }
 
@@ -429,8 +448,11 @@ select:focus {
   fill: #ffffff;
   stroke: #c94a10;
   stroke-width: 4.5;
-  filter: drop-shadow(0 0 8px rgba(200,70,16,0.7));
+  /* No filter here: the dot moves every frame and a drop-shadow would force
+     a repaint of the filtered region each time. The glow is a static halo
+     circle (#runnerHalo) instead. */
 }
+.runner-halo { fill: rgba(200,70,16,0.28); pointer-events: none; }
 
 .runner-pulse {
   fill: none;
@@ -456,8 +478,8 @@ select:focus {
 }
 
 .lap-pill.accent {
-  background: linear-gradient(135deg, #fff3ee, #fff8f4);
-  border-color: rgba(232,93,32,0.25);
+  background: linear-gradient(135deg, var(--accent-tint), var(--accent-tint-2));
+  border-color: var(--accent-border);
 }
 
 .lap-pill strong { display: block; margin-top: 4px; font-size: 1rem; color: var(--text); }
@@ -492,7 +514,8 @@ th:last-child  { border-radius: 0 var(--radius-sm) 0 0; }
 tbody tr { transition: background 120ms; }
 tbody tr:hover { background: var(--bg-surface); }
 
-tbody tr.active-row { background: rgba(232,93,32,0.05); }
+tbody tr.active-row { background: var(--accent-soft); font-weight: 600; }
+tbody tr.active-row td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 tbody tr.lap-boundary td { border-bottom: 2px solid rgba(0,0,0,0.12); }
 
 /* ═══════════════════════════════════════
@@ -500,8 +523,8 @@ tbody tr.lap-boundary td { border-bottom: 2px solid rgba(0,0,0,0.12); }
 ═══════════════════════════════════════ */
 .model-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 11px;
+  grid-template-columns: 1fr;
+  gap: 10px;
 }
 
 .model-tile {
@@ -523,8 +546,8 @@ tbody tr.lap-boundary td { border-bottom: 2px solid rgba(0,0,0,0.12); }
 }
 
 .model-tile.accent {
-  background: linear-gradient(140deg, #fff3ee, var(--bg-surface));
-  border-color: rgba(232,93,32,0.22);
+  background: linear-gradient(140deg, var(--accent-tint), var(--bg-surface));
+  border-color: var(--accent-border);
 }
 
 .model-tile.full {
@@ -532,13 +555,13 @@ tbody tr.lap-boundary td { border-bottom: 2px solid rgba(0,0,0,0.12); }
 }
 
 .model-tile.accent:hover {
-  background: linear-gradient(140deg, #ffe8dc, var(--bg-surface));
-  border-color: rgba(232,93,32,0.45);
+  background: linear-gradient(140deg, var(--accent-soft), var(--bg-surface));
+  border-color: var(--accent);
 }
 
 .model-tile strong {
   display: block;
-  margin: 8px 0 3px;
+  margin: 6px 0 3px;
   font-size: 1.3rem;
   color: var(--text);
   letter-spacing: -0.01em;
@@ -547,11 +570,37 @@ tbody tr.lap-boundary td { border-bottom: 2px solid rgba(0,0,0,0.12); }
 .ensemble-ci {
   margin: 0 0 3px;
   font-size: 0.85rem;
-  color: rgba(232,93,32,0.80);
+  color: var(--accent);
   font-family: "Courier New", monospace;
   font-weight: 600;
   letter-spacing: 0.02em;
 }
+
+/* Ensemble weight readout with a thin proportional bar */
+.tile-weight {
+  position: relative;
+  display: block;
+  margin: 2px 0 4px;
+  padding-bottom: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.03em;
+}
+.tile-weight::after {
+  content: "";
+  position: absolute;
+  left: 0; bottom: 0;
+  height: 3px;
+  width: var(--w, 0%);
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-light));
+  transition: width 400ms ease;
+}
+.tile-weight.muted { color: var(--text-dim); font-weight: 500; }
+.tile-weight.muted::after { display: none; }
+.model-tile.accent .tile-weight { display: inline; padding: 0; margin: 0; }
+.model-tile.accent .tile-weight::after { display: none; }
 
 .tile-hint {
   margin-top: auto;
@@ -563,6 +612,40 @@ tbody tr.lap-boundary td { border-bottom: 2px solid rgba(0,0,0,0.12); }
 }
 
 .model-tile:hover .tile-hint { color: var(--accent); }
+
+/* ═══════════════════════════════════════
+   STRATEGY COMPARISON
+═══════════════════════════════════════ */
+.heading-note { margin-left: auto; font-size: 0.74rem; color: var(--text-dim); font-weight: 400; }
+.compare-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+.compare-table td, .compare-table th { padding: 8px 10px; }
+.cmp-row { cursor: pointer; }
+.cmp-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.cmp-swatch {
+  display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+  margin-right: 7px; vertical-align: middle;
+}
+.cmp-line { cursor: pointer; }
+
+/* Race-log anchor hint under the Previous 800m field */
+.anchor-hint {
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+}
+.link-btn {
+  background: none; border: 0; padding: 0; margin-left: 4px;
+  color: var(--accent); font: inherit; font-weight: 600; cursor: pointer;
+  text-decoration: underline;
+}
 
 /* ═══════════════════════════════════════
    MODAL
@@ -673,14 +756,15 @@ tbody tr.lap-boundary td { border-bottom: 2px solid rgba(0,0,0,0.12); }
 /* Fatigue line: original teal */
 .graph-line {
   fill: none;
-  stroke: #2ef2c1;
+  stroke: var(--graph-teal);
   stroke-width: 2.5;
   stroke-linejoin: round;
   stroke-linecap: round;
 }
 
 /* Fatigue dots */
-.graph-point { fill: #f8fafa; stroke: #2ef2c1; stroke-width: 2; }
+.graph-point { fill: #f8fafa; stroke: var(--graph-teal); stroke-width: 2; }
+.graph-point.pace { stroke: var(--graph-blue); }
 
 .graph-legend {
   display: flex;
@@ -697,7 +781,7 @@ tbody tr.lap-boundary td { border-bottom: 2px solid rgba(0,0,0,0.12); }
   display: inline-block;
   width: 9px; height: 9px;
   border-radius: 50%;
-  background: #2ef2c1;
+  background: var(--graph-teal);
 }
 
 .accent2-dot::before {
@@ -705,7 +789,7 @@ tbody tr.lap-boundary td { border-bottom: 2px solid rgba(0,0,0,0.12); }
   display: inline-block;
   width: 9px; height: 3px;
   border-radius: 2px;
-  background: #56a8ff;
+  background: var(--graph-blue);
 }
 
 /* ═══════════════════════════════════════
@@ -758,24 +842,40 @@ tbody tr.lap-boundary td { border-bottom: 2px solid rgba(0,0,0,0.12); }
    STRATEGY COLOUR THEMES (light-mode safe)
 ═══════════════════════════════════════ */
 body[data-strategy="even"] {
-  --accent:      #3b6fe8;
-  --accent-light: #6090ff;
-  --accent-soft: rgba(59,111,232,0.08);
+  --accent:        #3b6fe8;
+  --accent-light:  #6090ff;
+  --accent-soft:   rgba(59,111,232,0.08);
+  --accent-glow:   rgba(59,111,232,0.15);
+  --accent-tint:   #f0f4ff;
+  --accent-tint-2: #f6f8ff;
+  --accent-border: rgba(59,111,232,0.22);
 }
 body[data-strategy="negative"] {
-  --accent:      #e85d20;
-  --accent-light: #ff7a40;
-  --accent-soft: rgba(232,93,32,0.08);
+  --accent:        #e85d20;
+  --accent-light:  #ff7a40;
+  --accent-soft:   rgba(232,93,32,0.08);
+  --accent-glow:   rgba(232,93,32,0.15);
+  --accent-tint:   #fff5f0;
+  --accent-tint-2: #fff9f5;
+  --accent-border: rgba(232,93,32,0.22);
 }
 body[data-strategy="frontLoaded"] {
-  --accent:      #c9820a;
-  --accent-light: #e8960f;
-  --accent-soft: rgba(201,130,10,0.08);
+  --accent:        #c9820a;
+  --accent-light:  #e8960f;
+  --accent-soft:   rgba(201,130,10,0.08);
+  --accent-glow:   rgba(201,130,10,0.15);
+  --accent-tint:   #fff8ea;
+  --accent-tint-2: #fffbf2;
+  --accent-border: rgba(201,130,10,0.22);
 }
 body[data-strategy="sitAndKick"] {
-  --accent:      #16a34a;
-  --accent-light: #22c55e;
-  --accent-soft: rgba(22,163,74,0.08);
+  --accent:        #16a34a;
+  --accent-light:  #22c55e;
+  --accent-soft:   rgba(22,163,74,0.08);
+  --accent-glow:   rgba(22,163,74,0.15);
+  --accent-tint:   #eefaf2;
+  --accent-tint-2: #f5fcf7;
+  --accent-border: rgba(22,163,74,0.22);
 }
 
 /* ═══════════════════════════════════════
@@ -841,11 +941,12 @@ body[data-strategy="sitAndKick"] {
    RESPONSIVE
 ═══════════════════════════════════════ */
 @media (max-width: 1100px) {
-  .hero { grid-template-columns: 1fr; }
-  .layout-grid { grid-template-columns: 1fr; }
-  .control-card, .sim-card, .table-card, .model-card, .graph-card {
+  .hero { grid-template-columns: minmax(0, 1fr); }
+  .layout-grid { grid-template-columns: minmax(0, 1fr); }
+  .control-card, .sim-card, .table-card, .model-card, .graph-card, .compare-card {
     grid-column: 1; grid-row: auto;
   }
+  .compare-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 860px) {
@@ -853,11 +954,24 @@ body[data-strategy="sitAndKick"] {
 }
 
 @media (max-width: 640px) {
-  .page-shell      { width: calc(100% - 20px); padding-top: 20px; }
+  .header          { padding: 0.65rem 16px; flex-wrap: wrap; justify-content: center; gap: 0.25rem 1rem; }
+  .logo            { font-size: 1.15rem; white-space: nowrap; }
+  .navbar          { gap: 1.1rem; width: 100%; justify-content: center; }
+  .navbar a        { font-size: 0.82rem; white-space: nowrap; }
+  .page-shell      { width: calc(100% - 20px); padding-top: 16px; }
   .hero-copy, .hero-stat-card, .card { padding: 18px; }
   .button-row      { flex-direction: column; }
   .sim-metrics     { grid-template-columns: repeat(2, 1fr); }
   .lap-strip       { grid-template-columns: 1fr; }
   .model-grid      { grid-template-columns: 1fr; }
   h1               { font-size: 2rem; }
+}
+/* ═══════════════════════════════════════
+   REDUCED MOTION
+═══════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+  .runner-pulse, .split-pulse { display: none; }
+  .track-lane { filter: none; }
 }
