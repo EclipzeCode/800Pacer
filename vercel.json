@@ -1,0 +1,8 @@
+{
+  "redirects": [
+    { "source": "/training.html",  "destination": "/", "permanent": true },
+    { "source": "/training",       "destination": "/", "permanent": true },
+    { "source": "/dashboard.html", "destination": "/", "permanent": true },
+    { "source": "/dashboard",      "destination": "/", "permanent": true }
+  ]
+}
