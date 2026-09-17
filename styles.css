@@ -46,7 +46,7 @@
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; scroll-padding-top: 90px; }
 
 /* ═══════════════════════════════════════
    NAVBAR
@@ -284,16 +284,19 @@ h2 { margin: 0; font-size: 1.2rem; letter-spacing: 0.01em; color: var(--text); }
   min-width: 0;
 }
 
-/* Sidebar + content: the setup form stays sticky beside every result card */
-.control-card { grid-column: 1; grid-row: 1 / -1; align-self: start; }
-/* Only pin the form when the whole card (incl. Run button) fits below the header */
-@media (min-height: 940px) { .control-card { position: sticky; top: 84px; } }
+/* Row 1: setup form beside the playback */
+.control-card { grid-column: 1; grid-row: 1; }   /* stretches to match the playback card */
 .sim-card     { grid-column: 2; grid-row: 1; }
-.graph-card   { grid-column: 2; grid-row: 2; }
-.model-card   { grid-column: 2; grid-row: 3; }
-.compare-card { grid-column: 2; grid-row: 4; }
-.table-card   { grid-column: 2; grid-row: 5; }
-/* Model tiles: 5 across in the content column */
+
+/* Results: symmetric two-column grid below */
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+.graph-card, .compare-card { grid-column: auto; }
+.model-card, .table-card   { grid-column: 1 / -1; }
 .model-card .model-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .model-card .model-tile.full { grid-column: auto; }
 
@@ -681,8 +684,8 @@ tbody tr.lap-boundary td { border-bottom: 2px solid rgba(0,0,0,0.12); }
 .heading-note { margin-left: auto; font-size: 0.74rem; color: var(--text-dim); font-weight: 400; }
 .compare-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-  gap: 18px;
+  grid-template-columns: 1fr;   /* chart above table — the card is half-width */
+  gap: 14px;
   align-items: start;
 }
 .compare-table td, .compare-table th { padding: 8px 10px; }
@@ -1005,13 +1008,11 @@ body[data-strategy="sitAndKick"] {
 @media (max-width: 1100px) {
   .hero { grid-template-columns: minmax(0, 1fr); }
   .layout-grid { grid-template-columns: minmax(0, 1fr); }
-  .control-card, .sim-card, .table-card, .model-card, .graph-card, .compare-card {
-    grid-column: 1; grid-row: auto;
-  }
-  .control-card { position: static; }
+  .control-card, .sim-card { grid-column: 1; grid-row: auto; }
+  .results-grid { grid-template-columns: minmax(0, 1fr); }
+  .graph-card, .compare-card, .model-card, .table-card { grid-column: 1; }
   .model-card .model-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .model-card .model-tile.full { grid-column: 1 / -1; }
-  .compare-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 860px) {

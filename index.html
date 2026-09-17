@@ -27,9 +27,10 @@
       <a href="index.html" class="logo">Track Race Predictor</a>
 
       <nav class="navbar">
-        <a href="index.html" class="active">Race Predictor</a>
-        <a href="training.html">Training</a>
-        <a href="dashboard.html">Dashboard</a>
+        <a href="#simForm">Setup</a>
+        <a href="#playback">Playback</a>
+        <a href="#models">Models</a>
+        <a href="#compare">Strategies</a>
       </nav>
     </header>
 
@@ -50,10 +51,6 @@
     <div class="hero-range" id="heroRange"></div>
     <div class="hero-facts" id="heroFacts"></div>
     <p id="heroInsight">Enter your PRs and run the simulation.</p>
-    <div class="hero-next" id="heroNext" hidden>
-      <a href="training.html">Get training zones for this fitness →</a>
-      <a href="dashboard.html">Track it on your dashboard →</a>
-    </div>
   </div>
 </header>
 
@@ -98,7 +95,6 @@
         <input id="pr800" type="text" inputmode="decimal" placeholder="e.g. 1:58.0"
                aria-describedby="pr800Msg">
         <small class="field-msg" id="pr800Msg" aria-live="polite"></small>
-        <small class="anchor-hint" id="anchorHint" hidden></small>
       </label>
 
       <label class="field">
@@ -137,7 +133,7 @@
     </form>
   </section>
 
-  <section class="card sim-card">
+  <section class="card sim-card" id="playback">
     <div class="section-heading">
       <h2>Race Playback</h2>
       <p class="section-sub">Watch the predicted race unfold 100m at a time. Both laps share the same markers — the bold number is the current lap.</p>
@@ -251,72 +247,10 @@
   </section>
 
 
-  <!-- ── ROW 2: Full-width Split Breakdown ── -->
+</main>
 
-  <section class="card table-card">
-    <div class="section-heading">
-      <h2>100m Split Breakdown</h2>
-      <p class="section-sub">Every split for the selected strategy. Green is faster than your average 100m, orange slower.</p>
-    </div>
-    <div class="table-inner">
-      <table>
-        <thead>
-          <tr>
-            <th>Dist</th>
-            <th>Lap</th>
-            <th>Split</th>
-            <th>Elapsed</th>
-            <th>vs Avg</th>
-            <th>Fatigue</th>
-          </tr>
-        </thead>
-        <tbody id="splitTableBody"></tbody>
-      </table>
-    </div>
-  </section>
-
-
-  <!-- ── ROW 3: Model Predictions (left) + Fatigue Graph (right) ── -->
-
-  <section class="card model-card">
-    <div class="section-heading">
-      <h2>How the prediction was built</h2>
-      <p class="section-sub">Four independent models, blended by how much each one can be trusted for your profile. Click any tile for the science.</p>
-    </div>
-    <div class="model-grid">
-      <div class="model-tile" data-model="riegel" role="button" tabindex="0" aria-haspopup="dialog">
-        <span class="tile-label">Riegel Power-Law</span>
-        <strong id="riegelVal">—</strong>
-        <span class="tile-weight" id="riegelW"></span>
-        <span class="tile-hint">Click to learn more ↗</span>
-      </div>
-      <div class="model-tile" data-model="cs" role="button" tabindex="0" aria-haspopup="dialog">
-        <span class="tile-label">Critical Speed</span>
-        <strong id="csVal">—</strong>
-        <span class="tile-weight" id="csW"></span>
-        <span class="tile-hint">Click to learn more ↗</span>
-      </div>
-      <div class="model-tile" data-model="blend" role="button" tabindex="0" aria-haspopup="dialog">
-        <span class="tile-label">MSS / MAS Blend</span>
-        <strong id="blendVal">—</strong>
-        <span class="tile-weight" id="blendW"></span>
-        <span class="tile-hint">Click to learn more ↗</span>
-      </div>
-      <div class="model-tile" data-model="vdot" role="button" tabindex="0" aria-haspopup="dialog">
-        <span class="tile-label">VDOT (Jack Daniels)</span>
-        <strong id="vdotVal">—</strong>
-        <span class="tile-weight" id="vdotW"></span>
-        <span class="tile-hint">Click to learn more ↗</span>
-      </div>
-      <div class="model-tile accent full" data-model="ensemble" role="button" tabindex="0" aria-haspopup="dialog">
-        <span class="tile-label">Ensemble (Weighted Avg)</span>
-        <strong id="ensembleVal">—</strong>
-        <p id="ensembleCI" class="ensemble-ci" title="Model-disagreement range, not a confidence interval">est. range ±—</p>
-        <span class="tile-weight muted" id="priorW"></span>
-        <span class="tile-hint">Click to learn more ↗</span>
-      </div>
-    </div>
-  </section>
+<!-- ── RESULTS: symmetric two-column grid ── -->
+<section class="results-grid" aria-label="Results">
 
   <section class="card graph-card">
     <div class="section-heading">
@@ -356,8 +290,7 @@
     </div>
   </section>
 
-  <!-- ── ROW 4: Strategy comparison (full width) ── -->
-  <section class="card compare-card">
+  <section class="card compare-card" id="compare">
     <div class="section-heading">
       <h2>Strategy Comparison</h2>
       <p class="section-sub">Same finishing time, four ways to run it. Click a row or line to make it the active strategy.</p>
@@ -382,7 +315,70 @@
     </div>
   </section>
 
-</main>
+  <section class="card model-card" id="models">
+    <div class="section-heading">
+      <h2>How the prediction was built</h2>
+      <p class="section-sub">Four independent models, blended by how much each one can be trusted for your profile. Click any tile for the science.</p>
+    </div>
+    <div class="model-grid">
+      <div class="model-tile" data-model="riegel" role="button" tabindex="0" aria-haspopup="dialog">
+        <span class="tile-label">Riegel Power-Law</span>
+        <strong id="riegelVal">—</strong>
+        <span class="tile-weight" id="riegelW"></span>
+        <span class="tile-hint">Click to learn more ↗</span>
+      </div>
+      <div class="model-tile" data-model="cs" role="button" tabindex="0" aria-haspopup="dialog">
+        <span class="tile-label">Critical Speed</span>
+        <strong id="csVal">—</strong>
+        <span class="tile-weight" id="csW"></span>
+        <span class="tile-hint">Click to learn more ↗</span>
+      </div>
+      <div class="model-tile" data-model="blend" role="button" tabindex="0" aria-haspopup="dialog">
+        <span class="tile-label">MSS / MAS Blend</span>
+        <strong id="blendVal">—</strong>
+        <span class="tile-weight" id="blendW"></span>
+        <span class="tile-hint">Click to learn more ↗</span>
+      </div>
+      <div class="model-tile" data-model="vdot" role="button" tabindex="0" aria-haspopup="dialog">
+        <span class="tile-label">VDOT (Jack Daniels)</span>
+        <strong id="vdotVal">—</strong>
+        <span class="tile-weight" id="vdotW"></span>
+        <span class="tile-hint">Click to learn more ↗</span>
+      </div>
+      <div class="model-tile accent full" data-model="ensemble" role="button" tabindex="0" aria-haspopup="dialog">
+        <span class="tile-label">Ensemble (Weighted Avg)</span>
+        <strong id="ensembleVal">—</strong>
+        <p id="ensembleCI" class="ensemble-ci" title="Model-disagreement range, not a confidence interval">est. range ±—</p>
+        <span class="tile-weight muted" id="priorW"></span>
+        <span class="tile-hint">Click to learn more ↗</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="card table-card">
+    <div class="section-heading">
+      <h2>100m Split Breakdown</h2>
+      <p class="section-sub">Every split for the selected strategy. Green is faster than your average 100m, orange slower.</p>
+    </div>
+    <div class="table-inner">
+      <table>
+        <thead>
+          <tr>
+            <th>Dist</th>
+            <th>Lap</th>
+            <th>Split</th>
+            <th>Elapsed</th>
+            <th>vs Avg</th>
+            <th>Fatigue</th>
+          </tr>
+        </thead>
+        <tbody id="splitTableBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+</section>
+
 
 <!-- ── DISCLAIMER FOOTER ── -->
 <footer class="disclaimer">

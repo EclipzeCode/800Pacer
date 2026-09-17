@@ -786,8 +786,7 @@ function updateHero(strategy, ens, segments) {
   const bandEl  = document.getElementById("heroBand");
   const rangeEl = document.getElementById("heroRange");
   const factsEl = document.getElementById("heroFacts");
-  const nextEl  = document.getElementById("heroNext");
-  if (!ens) { if (nextEl) nextEl.hidden = true; return; }
+  if (!ens) return;
 
   if (bandEl)  { bandEl.textContent = BAND_LABEL[ens.band] ?? ""; bandEl.hidden = !ens.band; }
   if (rangeEl) rangeEl.textContent = `est. range ±${ens.spreadRange.toFixed(1)}s`;
@@ -801,7 +800,6 @@ function updateHero(strategy, ens, segments) {
       <span>Avg <b>${(ens.mean / 8).toFixed(1)}s</b>/100m</span>
       <span><b>${nModels}</b> model${nModels === 1 ? "" : "s"}${ens.weightMap.prior ? " + prior" : ""}</span>`;
   }
-  if (nextEl) nextEl.hidden = false;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -831,7 +829,7 @@ function showFieldState(field) {
 
 /**
  * @param {{persist?: boolean}} opts
- *   persist — write athleteProfile + predictionHistory to localStorage.
+ *   persist — remember the athlete's inputs in localStorage.
  *   Only true on an explicit form submit, never on page load or on
  *   strategy/sex/profile toggles, so history isn't polluted.
  */
@@ -881,7 +879,7 @@ function runSimulation({ persist = false } = {}) {
 
   updateDemoNote();
 
-  // Persist to localStorage for Dashboard / Training pages — explicit submit only.
+  // Remember the athlete so the form is pre-filled next visit — explicit submit only.
   if (!persist) return;
   isDemoData = false;
   updateDemoNote();
@@ -890,28 +888,7 @@ function runSimulation({ persist = false } = {}) {
       t400, t1600, t800, profile, sex, strategy, savedAt: Date.now(),
     }));
     localStorage.removeItem("formDraft");   // submitted -> draft no longer needed
-    const hist = JSON.parse(localStorage.getItem("predictionHistory") || "[]");
-    const last = hist[hist.length - 1];
-    const sameInputs = last
-      && last.t400 === t400
-      && (last.t1600 ?? null) === (t1600 ?? null)
-      && (last.t800  ?? null) === (t800  ?? null)
-      && (last.profile ?? profile) === profile
-      && (last.sex ?? sex) === sex
-      && Math.abs(last.predicted - ens.mean) < 0.005;
-    if (!sameInputs) {
-      hist.push({
-        date: Date.now(), predicted: ens.mean, band: ens.band,
-        t400, t1600: t1600 ?? null, t800: t800 ?? null, profile, sex,
-      });
-      localStorage.setItem("predictionHistory", JSON.stringify(hist.slice(-50)));
-      showToast(`Saved ${formatTime(ens.mean)} to your dashboard history.`, {
-        type: "success",
-        action: { label: "View", onClick: () => { window.location.href = "dashboard.html"; } },
-      });
-    } else {
-      showToast("Profile saved — inputs unchanged, so no new history entry.", { type: "info", duration: 3000 });
-    }
+    showToast(`Predicted ${formatTime(ens.mean)}. Your PRs are remembered for next time.`, { type: "success", duration: 3500 });
   } catch (_) {}
 }
 
@@ -955,34 +932,6 @@ function saveFormDraft() {
   } catch (_) {}
 }
 
-/**
- * If the race log holds a result that differs from the current
- * "Previous 800m" field, offer it as a one-click anchor.
- */
-function showAnchorHint() {
-  const hintEl = document.getElementById("anchorHint");
-  if (!hintEl) return;
-  hintEl.hidden = true;
-  try {
-    const log = JSON.parse(localStorage.getItem("raceLog") || "[]");
-    if (!log.length) return;
-    const latest  = [...log].sort((a, b) => b.date - a.date)[0];
-    const current = parseTime(pr800Input.value);
-    if (current != null && Math.abs(current - latest.time) < 0.005) return;
-    const when  = new Date(latest.date).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-    const venue = latest.venue ? ", " + String(latest.venue).replace(/[<>&"]/g, "") : "";
-    hintEl.innerHTML = `Latest logged race: <strong>${formatTime(latest.time)}</strong> (${when}${venue}). <button type="button" class="link-btn" id="useAnchorBtn">Use as anchor</button>`;
-    hintEl.hidden = false;
-    document.getElementById("useAnchorBtn").addEventListener("click", () => {
-      pr800Input.value = formatInput(latest.time);
-      pr800Input.dispatchEvent(new Event("input", { bubbles: true }));
-      hintEl.hidden = true;
-      isDemoData = false;
-      runSimulation({ persist: true });
-    });
-  } catch (_) {}
-}
-
 /* ═══════════════════════════════════════════════════════════
    8C. EVENT BINDING
 ═══════════════════════════════════════════════════════════ */
@@ -1017,7 +966,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("resetButton")?.addEventListener("click", async () => {
     const ok = await confirmDialog({
       title: "Clear the form?",
-      body: "This clears the inputs on this page. Your saved profile, history and race log on the dashboard are not affected.",
+      body: "This clears every input and forgets your remembered PRs on this device.",
       confirmLabel: "Clear form",
     });
     if (!ok) return;
@@ -1026,7 +975,8 @@ document.addEventListener("DOMContentLoaded", () => {
     profileInput.value  = "balanced";
     strategyInput.value = "negative";
     TIME_FIELDS.forEach(showFieldState);
-    try { localStorage.removeItem("formDraft"); } catch (_) {}
+    try { localStorage.removeItem("formDraft"); localStorage.removeItem("athleteProfile"); } catch (_) {}
+    isDemoData = false; updateDemoNote();
     pr400Input.focus();
     showToast("Form cleared.", { type: "success", duration: 2500 });
   });
@@ -1055,8 +1005,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Initial render: use the saved profile if there is one, otherwise the
   // placeholder demo values. Neither is written to history.
+  // Tidy keys left behind by the retired Training/Dashboard pages.
+  try { ["predictionHistory", "raceLog", "athleteGoal"].forEach(k => localStorage.removeItem(k)); } catch (_) {}
   isDemoData = !prefillFromSavedProfile();   // nothing saved → placeholder values
   document.body.dataset.strategy = strategyInput.value;
   runSimulation();
-  showAnchorHint();
 });
