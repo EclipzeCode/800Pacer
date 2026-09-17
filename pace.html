@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pace Calculator — Track Race Predictor</title>
+<meta name="description" content="Running pace calculator: pick a pace per mile, per kilometre or per 400m and see estimated finish times for every track and road distance from 400m to 50K.">
+<meta name="theme-color" content="#e85d20">
+<link rel="preload" href="styles.css" as="style">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<script defer src="ui.js"></script>
+<script defer src="pace.js"></script>
+<script defer src="/_vercel/insights/script.js"></script>
+</head>
+
+<body>
+<header class="header">
+  <a href="index.html" class="logo">Track Race Predictor</a>
+  <nav class="navbar">
+    <a href="index.html">Race Predictor</a>
+    <a href="pace.html" class="active">Pace Calculator</a>
+  </nav>
+</header>
+
+<div class="page-shell">
+
+<main class="pace-layout">
+
+  <!-- ── LEFT: intro + controls ── -->
+  <aside class="pace-side">
+    <p class="eyebrow">Track Performance Tool</p>
+    <h1>Running Pace Calculator</h1>
+    <p class="pace-intro">
+      Pick the pace you expect to hold and see your finish time for every distance —
+      track events from 400m to 5000m and road races from the mile to 50K.
+    </p>
+    <p class="pace-intro">
+      The table shows your pace in the middle column with slightly faster and slower
+      paces either side, so you can see what a few seconds per lap is worth.
+    </p>
+
+    <section class="card pace-card">
+      <div class="section-heading">
+        <h2>Expected Pace</h2>
+        <p class="section-sub">Updates the table as you change it.</p>
+      </div>
+
+      <form id="paceForm" class="control-form">
+        <div class="pace-time-row">
+          <label class="field">
+            <span>Minutes</span>
+            <select id="paceMin" aria-label="Pace minutes"></select>
+          </label>
+          <label class="field">
+            <span>Seconds</span>
+            <select id="paceSec" aria-label="Pace seconds"></select>
+          </label>
+        </div>
+
+        <fieldset class="unit-group">
+          <legend class="sr-only">Pace unit</legend>
+          <label class="radio"><input type="radio" name="unit" value="mi" checked> min/mi</label>
+          <label class="radio"><input type="radio" name="unit" value="km"> min/km</label>
+          <label class="radio"><input type="radio" name="unit" value="400"> per 400m</label>
+        </fieldset>
+
+        <div class="button-row">
+          <button class="primary-btn" type="submit">Calculate Finish Time</button>
+          <button class="ghost-btn" type="button" id="printPace" title="Print this table">Print</button>
+        </div>
+      </form>
+    </section>
+
+    <p class="pace-note">
+      Track distances assume a standard 400m outdoor track. Road distances use exact race lengths
+      (5K = 5000m, half marathon = 21.0975 km). Times are simple pace × distance — no fatigue model.
+    </p>
+  </aside>
+
+  <!-- ── RIGHT: results table ── -->
+  <section class="pace-results">
+    <div class="section-heading">
+      <h2>Estimated Finish Time</h2>
+      <p class="section-sub" id="paceSummary"></p>
+    </div>
+    <div class="table-inner">
+      <table class="pace-table" id="paceTable">
+        <thead><tr id="paceHead"></tr></thead>
+        <tbody id="paceBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<footer class="disclaimer">
+  <div class="disclaimer-inner">
+    <div class="disc-bottom">
+      <p>© 2026 800m Time Calculator &nbsp;·&nbsp; Finish times are arithmetic estimates only &nbsp;·&nbsp; Use at your own discretion.</p>
+    </div>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>

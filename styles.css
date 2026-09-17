@@ -124,6 +124,9 @@ html { scroll-behavior: smooth; scroll-padding-top: 90px; }
 .navbar a.active {
   color: var(--accent);
 }
+/* Link to another page (vs in-page anchors) */
+.navbar a.nav-page { padding-left: 1.2rem; margin-left: 0.4rem; border-left: 1px solid var(--line-strong); }
+@media (max-width: 640px) { .navbar a.nav-page { padding-left: 0; margin-left: 0; border-left: 0; } }
 
 body {
   margin: 0;
@@ -1098,4 +1101,54 @@ body[data-strategy="sitAndKick"] {
 
 @media (max-width: 640px) {
   .toast-root { right: 10px; left: 10px; bottom: 10px; max-width: none; }
+}
+
+/* ═══════════════════════════════════════
+   PACE CALCULATOR PAGE
+═══════════════════════════════════════ */
+.pace-layout {
+  display: grid;
+  grid-template-columns: 360px minmax(0, 1fr);
+  gap: 32px;
+  align-items: start;
+}
+.pace-side h1 { margin: 6px 0 12px; }
+.pace-intro { margin: 0 0 12px; color: var(--text-secondary); line-height: 1.6; font-size: 0.95rem; }
+.pace-card { margin-top: 20px; }
+.pace-note { margin: 14px 0 0; font-size: 0.76rem; color: var(--text-dim); line-height: 1.55; }
+
+.pace-time-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.unit-group { display: flex; flex-wrap: wrap; gap: 6px 18px; border: 0; padding: 0; margin: 2px 0 0; }
+.radio { display: inline-flex; align-items: center; gap: 7px; font-size: 0.88rem; font-weight: 500; cursor: pointer; }
+.radio input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+
+.pace-results { min-width: 0; }
+.pace-results .section-heading { margin-bottom: 10px; }
+.pace-table { width: 100%; border-collapse: collapse; }
+.pace-table th, .pace-table td { padding: 7px 10px; font-size: 0.88rem; white-space: nowrap; border-bottom: 1px solid var(--line); }
+.pace-table th { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary); background: var(--bg-surface); text-align: left; }
+.pace-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.pace-table th.is-selected, .pace-table td.is-selected { background: var(--accent-soft); color: var(--text); font-weight: 600; }
+.pace-table th.is-selected { color: var(--accent); }
+.pace-table tr.is-key td { font-weight: 600; background: rgba(0,0,0,0.025); }
+.pace-table tr.is-key td.is-selected { background: var(--accent-glow); }
+.pace-table tr.pace-group td {
+  padding: 12px 10px 5px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--text-dim); border-bottom: 1px solid var(--line-strong); background: transparent;
+}
+.pace-table tbody tr:not(.pace-group):hover td { background: var(--bg-surface); }
+.pace-table tbody tr:not(.pace-group):hover td.is-selected { background: var(--accent-glow); }
+.pace-empty { text-align: center; color: var(--text-secondary); padding: 24px; }
+
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+@media (max-width: 1000px) {
+  .pace-layout { grid-template-columns: 1fr; gap: 20px; }
+}
+@media print {
+  .header, .pace-side, .disclaimer { display: none !important; }
+  .page-shell { width: 100%; padding: 0; }
+  .pace-layout { grid-template-columns: 1fr; }
+  .pace-table th, .pace-table td { padding: 4px 8px; font-size: 0.8rem; }
 }
