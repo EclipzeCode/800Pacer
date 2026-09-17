@@ -55,11 +55,10 @@ const DISTANCES = [
 
 /* Pace unit → metres covered per pace interval, and sensible select ranges */
 const UNITS = {
-  mi:  { metres: MI,   label: "/mi",   minMin: 3, maxMin: 20, defMin: 8, defSec: 0  },
-  km:  { metres: 1000, label: "/km",   minMin: 2, maxMin: 13, defMin: 5, defSec: 0  },
-  400: { metres: 400,  label: "/400m", minMin: 0, maxMin: 5,  defMin: 1, defSec: 30 },
+  mi:  { metres: MI,   label: "/mi",   minMin: 3, maxMin: 20, defMin: 8, defSec: 0,  step: 30 },
+  km:  { metres: 1000, label: "/km",   minMin: 2, maxMin: 13, defMin: 5, defSec: 0,  step: 30 },
+  400: { metres: 400,  label: "/400m", minMin: 0, maxMin: 5,  defMin: 1, defSec: 30, step: 15 },
 };
-const STEP_SEC = 30;   // column spacing
 
 /* ── Formatting ─────────────────────────────────────────── */
 function fmtClock(totalSec) {
@@ -128,23 +127,27 @@ function render() {
     return;
   }
 
-  // Five columns: −60, −30, 0, +30, +60 s; never below 30 s per unit.
-  const offsets = [-2, -1, 0, 1, 2].map(k => k * STEP_SEC);
-  const cols    = offsets.map(o => Math.max(30, paceS + o));
+  // Selected pace in the centre, two faster and two slower columns at the
+  // unit's step (15 s per 400m, 30 s per km/mi). A faster column that would
+  // be zero or negative is simply dropped.
+  const cols = [-2, -1, 0, 1, 2]
+    .map(k => ({ p: paceS + k * u.step, selected: k === 0 }))
+    .filter(c => c.p > 0);
+  const span = cols.length + 1;
 
-  headRow.innerHTML = `<th>Distance</th>` + cols.map((p, i) =>
-    `<th class="num${i === 2 ? " is-selected" : ""}">${fmtPace(p, unit)}</th>`).join("");
+  headRow.innerHTML = `<th>Distance</th>` + cols.map(c =>
+    `<th class="num${c.selected ? " is-selected" : ""}">${fmtPace(c.p, unit)}</th>`).join("");
 
   let lastGroup = null;
   const rows = [];
   DISTANCES.forEach(d => {
     if (d.group !== lastGroup) {
-      rows.push(`<tr class="pace-group"><td colspan="6">${d.group === "track" ? "Track" : "Road"}</td></tr>`);
+      rows.push(`<tr class="pace-group"><td colspan="${span}">${d.group === "track" ? "Track" : "Road"}</td></tr>`);
       lastGroup = d.group;
     }
-    const cells = cols.map((p, i) => {
-      const t = d.m / u.metres * p;
-      return `<td class="num${i === 2 ? " is-selected" : ""}">${fmtClock(t)}</td>`;
+    const cells = cols.map(c => {
+      const t = d.m / u.metres * c.p;
+      return `<td class="num${c.selected ? " is-selected" : ""}">${fmtClock(t)}</td>`;
     }).join("");
     rows.push(`<tr class="${d.key ? "is-key" : ""}"><td>${d.label}</td>${cells}</tr>`);
   });
@@ -169,8 +172,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (saved?.paceS) setPace(unit, saved.paceS);
   render();
 
-  minSel.addEventListener("change", render);
-  secSel.addEventListener("change", render);
+  // The table only updates when "Calculate Finish Time" is pressed.
   document.querySelectorAll('input[name="unit"]').forEach(r => r.addEventListener("change", () => {
     // Convert the current pace into the new unit so the table doesn't jump.
     const fromUnit = minSel.dataset.unit || "mi";
@@ -179,7 +181,6 @@ document.addEventListener("DOMContentLoaded", () => {
     fillSelects(toUnit, false);
     setPace(toUnit, paceS / UNITS[fromUnit].metres * UNITS[toUnit].metres);
     minSel.dataset.unit = toUnit;
-    render();
   }));
   minSel.dataset.unit = unit;
 
