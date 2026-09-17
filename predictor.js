@@ -255,7 +255,7 @@ function renderSplitMarkers(segments) {
     lbl.setAttribute("x", lox); lbl.setAttribute("y", loy);
     lbl.setAttribute("text-anchor", "middle"); lbl.setAttribute("font-size", "8.5");
     lbl.setAttribute("fill", "rgba(120,50,10,0.92)");
-    lbl.setAttribute("font-family", "Bahnschrift,sans-serif"); lbl.setAttribute("font-weight", "700");
+    lbl.setAttribute("font-family", "Inter,sans-serif"); lbl.setAttribute("font-weight", "700");
     lbl.setAttribute("class", "split-label");
     // Both laps pass this marker: "100 / 500". The active lap's number is
     // emphasised by highlightMarker(); nothing is ever overwritten.
